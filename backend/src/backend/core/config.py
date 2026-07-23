@@ -1,10 +1,9 @@
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
 BASE_DIR = Path(__file__).resolve().parents[3]
 env_path = BASE_DIR / '.env'
 
-print(f"Ищу .env файл здесь: {env_path}")
-print(f"Файл существует?: {env_path.exists()}")
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -12,6 +11,14 @@ class Settings(BaseSettings):
         env_file_encoding='utf-8',
         extra='ignore'
     )
+
     database_url: str
+    debug: bool = False
+
+    # Добавь остальные поля, которые планируешь использовать (с дефолтами или опциональные):
+    app_name: str = "RecipeFinderAPI"
+    secret_key: str | None = None
+    # При необходимости добавь остальные поля из .env
+
 
 settings = Settings()

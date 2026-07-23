@@ -3,8 +3,8 @@ from decimal import Decimal
 from sqlalchemy import ForeignKey, Numeric
 from sqlalchemy.orm import Mapped,mapped_column
 
-from backend.src.backend.core.enums import TicketStatus
-from backend.src.backend.models.base import Base
+from backend.core.enums import TicketStatus
+from backend.models.base import Base
 
 
 class Ticket(Base):
