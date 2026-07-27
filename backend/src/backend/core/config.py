@@ -14,11 +14,9 @@ class Settings(BaseSettings):
 
     database_url: str
     debug: bool = False
-
-    # Добавь остальные поля, которые планируешь использовать (с дефолтами или опциональные):
+    redis_url: str
     app_name: str = "RecipeFinderAPI"
     secret_key: str | None = None
-    # При необходимости добавь остальные поля из .env
 
 
 settings = Settings()
