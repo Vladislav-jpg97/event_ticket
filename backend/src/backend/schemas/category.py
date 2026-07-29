@@ -6,5 +6,6 @@ class Categories(BaseModel):
     name: str
     slug: str
 
+
 class CategoriesResponse(Categories):
     pass

@@ -1,7 +1,6 @@
 from fastapi import APIRouter
 from starlette import status
 
-from backend.schemas.auth import UserResponse
 from backend.schemas.event import PaginatedEventResponse, EventResponse, EventCreate
 from backend.schemas.review import ReviewResponse, ReviewCreate
 from backend.schemas.ticket import TicketResponse, TicketCreate

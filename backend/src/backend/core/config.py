@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     redis_url: str
     app_name: str = "RecipeFinderAPI"
     secret_key: str | None = None
+    access_token_expire_minutes: int = 30
+    refresh_token_expire_days: int = 30
+    algorithm: str = "HS256"
 
 
 settings = Settings()
