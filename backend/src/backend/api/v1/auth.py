@@ -1,5 +1,6 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Request, Response
 
+from backend.core.cache import RedisDep
 from backend.dependencies.auth import UserServiceDep
 from backend.schemas.auth import (
     UserCreate,
@@ -9,10 +10,10 @@ from backend.schemas.auth import (
     RefreshToken,
     VerifyEmailRequest,
     ForgotPasswordRequest,
-    ResetPasswordRequest,
+    ResetPasswordRequest, AccessTokenResponse,
 )
 
-router = APIRouter(prefix="/api/v1", tags=["Auth & Users"])
+router = APIRouter(tags=["Auth & Users"])
 
 
 @router.post(
@@ -30,17 +31,35 @@ async def register(
     return new_user
 
 
-
 @router.post(
-    "/auth/login",
-    response_model=Token,
+    "/login",
+    response_model=AccessTokenResponse,
     status_code=status.HTTP_200_OK,
-    summary="Вход в систему"
+    summary="Авторизация пользователя"
 )
 async def login(
-        body: LoginRequest
-) -> Token:
-    raise HTTPException(status_code=501, detail="Not Implemented")
+        body: LoginRequest,
+        request: Request,
+        response: Response,
+        auth_service: UserServiceDep,
+        redis_client: RedisDep,
+) -> dict:
+    client_ip = request.client.host
+
+    tokens = await auth_service.login_user(body, client_ip, redis_client)
+
+    response.set_cookie(
+        key="refresh_token",
+        value=tokens["refresh_token"],
+        httponly=True,
+        samesite="lax",
+        secure=False,
+    )
+
+    return {
+        "access_token": tokens["access_token"],
+        "token_type": "bearer",
+    }
 
 
 @router.post(

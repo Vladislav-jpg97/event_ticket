@@ -1,5 +1,6 @@
 import enum
-class Role(str,enum.Enum):
+
+class Role(str, enum.Enum):
     ATTENDEE = 'ATTENDEE'
     ORGANIZER = 'ORGANIZER'
     ADMIN = 'ADMIN'

@@ -48,19 +48,11 @@ class RetrieveRepositoryMixin(Generic[M]):
         return obj
 
     async def get_by_email(self, email: str) -> M | None:
-        return (
-            await self.session.execute(
-                select(
-                    self.model.email == email
-                )
-            )
-        ).scalar_one_or_none()
+        stmt = select(self.model).where(self.model.email == email)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
 
     async def get_by_username(self, username: str) -> M | None:
-        return (
-            await self.session.execute(
-                select(
-                    self.model.username == username
-                )
-            )
-        ).scalar_one_or_none()
+        stmt = select(self.model).where(self.model.username == username)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
