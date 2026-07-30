@@ -1,4 +1,6 @@
 from fastapi import APIRouter, HTTPException, status
+
+from backend.dependencies.auth import UserServiceDep
 from backend.schemas.auth import (
     UserCreate,
     UserResponse,
@@ -20,9 +22,13 @@ router = APIRouter(prefix="/api/v1", tags=["Auth & Users"])
     summary="Регистрация пользователя"
 )
 async def register(
-        request: UserCreate
+        body: UserCreate,
+        service: UserServiceDep
+
 ) -> UserResponse:
-    raise HTTPException(status_code=501, detail="Not Implemented")
+    new_user = await service.register_user(body)
+    return new_user
+
 
 
 @router.post(
@@ -32,7 +38,7 @@ async def register(
     summary="Вход в систему"
 )
 async def login(
-        request: LoginRequest
+        body: LoginRequest
 ) -> Token:
     raise HTTPException(status_code=501, detail="Not Implemented")
 
@@ -53,7 +59,7 @@ async def logout():
     summary="Обновление токенов"
 )
 async def refresh_tokens(
-        request: RefreshToken
+        body: RefreshToken
 ) -> Token:
     raise HTTPException(status_code=501, detail="Not Implemented")
 
@@ -64,7 +70,7 @@ async def refresh_tokens(
     summary="Подтверждение email"
 )
 async def verify_email(
-        request: VerifyEmailRequest
+        body: VerifyEmailRequest
 ):
     raise HTTPException(status_code=501, detail="Not Implemented")
 
@@ -75,7 +81,7 @@ async def verify_email(
     summary="Запрос на восстановление пароля"
 )
 async def forgot_password(
-        request: ForgotPasswordRequest
+        body: ForgotPasswordRequest
 ):
     raise HTTPException(status_code=501, detail="Not Implemented")
 
@@ -86,7 +92,7 @@ async def forgot_password(
     summary="Сброс пароля"
 )
 async def reset_password(
-        request: ResetPasswordRequest
+        body: ResetPasswordRequest
 ):
     raise HTTPException(status_code=501, detail="Not Implemented")
 
@@ -108,6 +114,6 @@ async def get_my_profile() -> UserResponse:
     summary="Профиль пользователя по username"
 )
 async def get_user_by_username(
-        username: str
+        body: str
 ) -> UserResponse:
     raise HTTPException(status_code=501, detail="Not Implemented")

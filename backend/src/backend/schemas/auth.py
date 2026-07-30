@@ -7,7 +7,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     username: str
     password: str
-    role: str
+    role: str = Field(default="user")
 
 class UserResponse(BaseModel):
     id: int

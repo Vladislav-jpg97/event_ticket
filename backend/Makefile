@@ -1,2 +1,2 @@
 dev:
-	poetry run uvicorn src.backend.main:app --reload
+	poetry run python -m uvicorn src.backend.main:app --reload

@@ -1,5 +1,5 @@
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-from backend.src.backend.core.config import settings
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from backend.core.config import settings
 
 engine = create_async_engine(
     settings.database_url,
@@ -8,7 +8,8 @@ engine = create_async_engine(
     max_overflow=20,
 )
 
-SessionDb = async_sessionmaker(  # <-- используем асинхронный фабрикатор сессий
+SessionFactory = async_sessionmaker(
     bind=engine,
+    class_=AsyncSession,
     expire_on_commit=False,
 )

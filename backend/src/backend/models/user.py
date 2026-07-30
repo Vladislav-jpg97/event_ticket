@@ -1,3 +1,6 @@
+from datetime import datetime
+
+from sqlalchemy import func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.core.enums import Role
@@ -15,3 +18,4 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(default=True)
     bio: Mapped[str] = mapped_column(default="")
     avatar_url: Mapped[str] = mapped_column(default="")
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
