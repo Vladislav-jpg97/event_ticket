@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, timezone, timedelta
 
 from jose import JWTError, jwt
@@ -27,9 +28,10 @@ class SecurityManager:
             minutes=self.access_token
         )
         payload = {
-            "sub": user_id,
+            "jti": str(uuid.uuid4()),
+            "sub": str(user_id),
             "exp": expire,
-            "type": "access_token",
+            "type": "access",
         }
         return jwt.encode(
             payload, self.secret_key, algorithm=self.algorithm
@@ -40,7 +42,7 @@ class SecurityManager:
             days=self.refresh_token
         )
         payload = {
-            "sub": user_id,
+            "sub": str(user_id),
             "exp": expire,
             "type": "refresh_token",
         }
@@ -64,3 +66,15 @@ class SecurityManager:
             raise credentials_exception
 
         return int(user_id_str)
+
+    async def get_token_payload(self, token: str) -> dict:
+        credentials_exception = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        try:
+            payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
+            return payload
+        except JWTError:
+            raise credentials_exception

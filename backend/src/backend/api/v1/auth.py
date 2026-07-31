@@ -1,7 +1,10 @@
-from fastapi import APIRouter, HTTPException, status, Request, Response
+
+
+from fastapi import APIRouter, HTTPException, status, Request, Response, Depends
+from fastapi.security import HTTPAuthorizationCredentials
 
 from backend.core.cache import RedisDep
-from backend.dependencies.auth import UserServiceDep
+from backend.dependencies.auth import UserServiceDep, security_scheme
 from backend.schemas.auth import (
     UserCreate,
     UserResponse,
@@ -24,8 +27,7 @@ router = APIRouter(tags=["Auth & Users"])
 )
 async def register(
         body: UserCreate,
-        service: UserServiceDep
-
+        service: UserServiceDep,
 ) -> UserResponse:
     new_user = await service.register_user(body)
     return new_user
@@ -64,11 +66,18 @@ async def login(
 
 @router.post(
     "/auth/logout",
-    status_code=status.HTTP_204_NO_CONTENT,
+    status_code=status.HTTP_200_OK,
     summary="Выход из системы"
 )
-async def logout():
-    raise HTTPException(status_code=501, detail="Not Implemented")
+async def logout(
+        response: Response,
+        auth_service: UserServiceDep,
+        credentials: HTTPAuthorizationCredentials = Depends(security_scheme),
+) -> dict:
+    token = credentials.credentials
+    await auth_service.logout_user(token)
+    response.delete_cookie(key="refresh_token")
+    return {"detail": "Successfully logged out"}
 
 
 @router.post(

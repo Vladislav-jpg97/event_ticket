@@ -1,7 +1,10 @@
+from datetime import datetime, timezone
+
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
 
+from backend.core.cache import CacheService
 from backend.core.security import SecurityManager
 from backend.models import User
 from backend.repository.user import UserRepository
@@ -13,12 +16,14 @@ class AuthService:
             self,
             session: AsyncSession,
             user_repo: UserRepository,
-            security_manager: SecurityManager
+            security_manager: SecurityManager,
+            cache_service: CacheService,
     ) -> None:
 
         self.session = session
         self.user_repo = user_repo
         self.security_manager = security_manager
+        self.cache_service = cache_service
 
     async def register_user(self, body: UserCreate):
         existing_email, existing_username = await self.user_repo.get_by_email(
@@ -86,3 +91,15 @@ class AuthService:
             "refresh_token": refresh_token,
             "token_type": "bearer",
         }
+
+    async def logout_user(self, token: str):
+        payload = await self.security_manager.get_token_payload(token)
+        jti = payload.get("jti")
+        exp = payload.get("exp")
+
+        if jti and exp:
+            current_timestamp = int(datetime.now(timezone.utc).timestamp())
+            ttl = exp - current_timestamp
+
+            if ttl > 0:
+                await self.cache_service.add_to_blacklist(jti=jti, ttl=ttl)

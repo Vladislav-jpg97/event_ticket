@@ -1,6 +1,10 @@
 from typing import Annotated
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from starlette import status
+
+from backend.core.cache import CacheServiceDep, get_cache_service
 from backend.core.security import SecurityManager
 from backend.dependencies.database import SessionDep
 from backend.repository.user import UserRepository
@@ -20,13 +24,50 @@ UserRepoDep = Annotated[
 async def get_user_service(
         user_repo: UserRepoDep,
         session: SessionDep,
+        cache_service: CacheServiceDep,
         security_manager: SecurityManager = Depends(SecurityManager),
 
 ) -> AuthService:
-    return AuthService(session=session, user_repo=user_repo, security_manager=security_manager)
+    return AuthService(
+        session=session,
+        user_repo=user_repo,
+        security_manager=security_manager,
+        cache_service=cache_service
+    )
 
 
 UserServiceDep = Annotated[
     AuthService,
     Depends(get_user_service),
 ]
+
+security_scheme = HTTPBearer()
+
+
+async def get_current_user(
+        credentials: HTTPAuthorizationCredentials = Depends(security_scheme),
+        security_manager: SecurityManager = Depends(SecurityManager),
+        cache_service: CacheServiceDep = Depends(get_cache_service),
+        user_repo: UserRepoDep = Depends(get_user_repo),
+):
+    token = credentials.credentials
+    payload = await security_manager.get_token_payload(token)
+    jti = payload.get("jti")
+    user_id = payload.get("sub")
+
+    if jti:
+        is_blacklisted = await cache_service.client.exists(f"blacklist:{jti}")
+        if is_blacklisted:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has been revoked",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+    user = await user_repo.get_by_id(user_id)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+        )
+    return user

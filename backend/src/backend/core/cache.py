@@ -39,6 +39,9 @@ class CacheService:
     async def close(self):
         await self.client.aclose()
 
+    async def add_to_blacklist(self,jti: str,ttl: int):
+        key = f"blacklist:{jti}"
+        await self.client.setex(key, ttl, "1")
 
 async def get_redis_client() -> Redis:
     return Redis.from_url(
