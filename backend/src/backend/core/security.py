@@ -42,6 +42,7 @@ class SecurityManager:
             days=self.refresh_token
         )
         payload = {
+            "jti": str(uuid.uuid4()),
             "sub": str(user_id),
             "exp": expire,
             "type": "refresh_token",

@@ -1,5 +1,3 @@
-
-
 from fastapi import APIRouter, HTTPException, status, Request, Response, Depends
 from fastapi.security import HTTPAuthorizationCredentials
 
@@ -98,9 +96,17 @@ async def refresh_tokens(
     summary="Подтверждение email"
 )
 async def verify_email(
-        body: VerifyEmailRequest
+        request: Request,
+        auth_service: UserServiceDep,
 ):
-    raise HTTPException(status_code=501, detail="Not Implemented")
+    refresh_token = request.cookies.get("refresh_token")
+    if not refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token cookie missing",
+        )
+    token = await auth_service.refresh_access_token(refresh_token)
+    return token
 
 
 @router.post(

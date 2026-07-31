@@ -102,4 +102,40 @@ class AuthService:
             ttl = exp - current_timestamp
 
             if ttl > 0:
-                await self.cache_service.add_to_blacklist(jti=jti, ttl=ttl)
+                await self.cache_service.add_to_backlist(jti=jti, ttl=ttl)
+
+    async def refresh_access_token(self, token: str | None):
+        credentials_exception = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        if not token:
+            raise credentials_exception
+
+        payload = await self.security_manager.get_token_payload(token)
+        jti = payload.get("jti")
+        token_type = payload.get("token_type")
+        user_id = payload.get("sub")
+
+        if token_type != "refresh_token" or not user_id:
+            raise credentials_exception
+
+        if jti:
+            is_blacklisted = await self.cache_service.client.get("is_blacklisted")
+            if is_blacklisted:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Token has been revoked",
+                )
+        user = await self.user_repo.get_by_id(user_id)
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found",
+            )
+        access_token = await self.security_manager.create_access_token(user.id)
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+        }
