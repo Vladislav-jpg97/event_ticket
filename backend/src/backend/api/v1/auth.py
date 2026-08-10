@@ -109,9 +109,10 @@ async def verify_email(
     summary="Запрос на восстановление пароля"
 )
 async def forgot_password(
-        body: ForgotPasswordRequest
+        body: ForgotPasswordRequest,
+        service: UserServiceDep,
 ):
-    raise HTTPException(status_code=501, detail="Not Implemented")
+    return await service.forget_password(body)
 
 
 @router.post(
@@ -119,10 +120,11 @@ async def forgot_password(
     status_code=status.HTTP_200_OK,
     summary="Сброс пароля"
 )
-async def reset_password(
-        body: ResetPasswordRequest
+async def resset_password(
+        body: ResetPasswordRequest,
+        service: UserServiceDep,
 ):
-    raise HTTPException(status_code=501, detail="Not Implemented")
+    return await service.resset_password(body)
 
 
 @router.get(

@@ -8,7 +8,7 @@ from backend.core.cache import CacheService
 from backend.core.security import SecurityManager
 from backend.models import User
 from backend.repository.user import UserRepository
-from backend.schemas.auth import UserCreate, LoginRequest
+from backend.schemas.auth import UserCreate, LoginRequest, ForgotPasswordRequest, ResetPasswordRequest
 
 import uuid
 
@@ -171,3 +171,44 @@ class AuthService:
         await self.session.commit()
         await self.session.refresh(user)
         return {"message": "Email successfully verified"}
+
+    async def forget_password(self, body: ForgotPasswordRequest):
+        user = await self.user_repo.get_by_email(body.email)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User not found",
+            )
+        reset_token =  str(uuid.uuid4())
+        await self.cache_service.set(
+            key=f"reset:{reset_token}",
+            value=user.email,
+            ttl=3600
+        )
+        await self.session.commit()
+        await self.session.refresh(user)
+        print(f"DEBUG: Forget password -> {reset_token}")
+
+    async def resset_password(self, body: ResetPasswordRequest):
+        cache_key = f"reset:{body.token}"
+        email = await self.cache_service.get(cache_key)
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired token",
+
+            )
+
+        user = await self.user_repo.get_by_email(email)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User not found",
+            )
+
+        new_hashed_password = self.security_manager.hash_password(body.new_password)
+        user.hashed_password = new_hashed_password
+        await self.cache_service.delete(cache_key)
+        await self.session.commit()
+        await self.session.refresh(user)
+        return {"message": "Password successfully changed"}
