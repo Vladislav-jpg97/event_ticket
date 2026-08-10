@@ -7,9 +7,16 @@ from starlette import status
 from backend.core.cache import CacheServiceDep, get_cache_service
 from backend.core.security import SecurityManager
 from backend.dependencies.database import SessionDep
+from backend.models import User
 from backend.repository.user import UserRepository
 from backend.services.auth import AuthService
 
+import enum
+
+class UserRole(str, enum.Enum):
+    ADMIN = "ADMIN"
+    ORGANIZER = "ORGANIZER"
+    ATTENDEE = "ATTENDEE"
 
 async def get_user_repo(session: SessionDep) -> UserRepository:
     return UserRepository(session)
@@ -71,3 +78,27 @@ async def get_current_user(
             detail="User not found",
         )
     return user
+
+
+async def require_verified(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    if not current_user.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Email is not verified",
+        )
+    return current_user
+
+
+def require_role(*roles: UserRole):
+    async def role_checker(
+        current_user: User = Depends(get_current_user)
+    ) -> User:
+        if current_user.role not in roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Operation not permitted for this role",
+            )
+        return current_user
+    return role_checker
