@@ -10,6 +10,7 @@ from backend.models import User
 from backend.repository.user import UserRepository
 from backend.schemas.auth import UserCreate, LoginRequest
 
+import uuid
 
 class AuthService:
     def __init__(
@@ -49,12 +50,21 @@ class AuthService:
         await self.user_repo.add(user)
         await self.session.commit()
         await self.session.refresh(user)
+
+        verification_token = str(uuid.uuid4())
+
+        await self.cache_service.set(
+            key=f"verify:{verification_token}",
+            value=user.id,
+            ttl=86400
+        )
+        print(f"DEBUG: Verification Token for {user.email} -> {verification_token}")
+
         return user
 
     async def login_user(self, body: LoginRequest, client_ip: str, redis_client):
         rate_limit_key = f"login_attempts:{client_ip}"
 
-        # 1. Проверяем, не заблокирован ли IP (если попыток уже >= 5)
         attempts = await redis_client.get(rate_limit_key)
         if attempts and int(attempts) >= 5:
             raise HTTPException(
@@ -62,13 +72,11 @@ class AuthService:
                 detail="Too many login attempts. Please try again later.",
             )
 
-        # 2. Ищем пользователя и проверяем пароль
         user = await self.user_repo.get_by_email(body.email)
 
         if user is None or not self.security_manager.verify_password(
                 body.password, user.hashed_password
         ):
-            # Увеличиваем счетчик неудачных попыток и ставим TTL 15 минут (900 секунд)
             pipe = redis_client.pipeline()
             pipe.incr(rate_limit_key)
             pipe.expire(rate_limit_key, 900)
@@ -79,10 +87,8 @@ class AuthService:
                 detail="Incorrect email or password",
             )
 
-        # 3. При успешном логине сбрасываем счётчик попыток в Redis
         await redis_client.delete(rate_limit_key)
 
-        # 4. Генерируем токены
         access_token = await self.security_manager.create_access_token(user.id)
         refresh_token = await self.security_manager.create_refresh_token(user.id)
 
@@ -102,7 +108,7 @@ class AuthService:
             ttl = exp - current_timestamp
 
             if ttl > 0:
-                await self.cache_service.add_to_backlist(jti=jti, ttl=ttl)
+                await self.cache_service.add_to_blacklist(jti=jti, ttl=ttl)
 
     async def refresh_access_token(self, token: str | None):
         credentials_exception = HTTPException(
@@ -139,3 +145,29 @@ class AuthService:
             "access_token": access_token,
             "token_type": "bearer",
         }
+
+    async def verify_email(self, token: str):
+
+        print(f"DEBUG: Trying to verify token -> {token}")
+        cache_key = f"verify:{token}"
+        payload = await self.cache_service.get(cache_key)
+        print(f"DEBUG: Payload from Redis -> {payload}")
+
+        if not payload:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired token",
+            )
+        user_id = int(payload)
+
+        user = await self.user_repo.get_by_id(user_id)
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User not found",
+            )
+        user.is_verified = True
+        await self.cache_service.delete(f"verify:{token}")
+        await self.session.commit()
+        await self.session.refresh(user)
+        return {"message": "Email successfully verified"}

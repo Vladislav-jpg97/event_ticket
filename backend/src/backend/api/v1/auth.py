@@ -9,9 +9,8 @@ from backend.schemas.auth import (
     LoginRequest,
     Token,
     RefreshToken,
-    VerifyEmailRequest,
     ForgotPasswordRequest,
-    ResetPasswordRequest, AccessTokenResponse,
+    ResetPasswordRequest, AccessTokenResponse, VerifyEmailRequest,
 )
 
 router = APIRouter(tags=["Auth & Users"])
@@ -96,17 +95,12 @@ async def refresh_tokens(
     summary="Подтверждение email"
 )
 async def verify_email(
-        request: Request,
+        body: VerifyEmailRequest,
         auth_service: UserServiceDep,
 ):
-    refresh_token = request.cookies.get("refresh_token")
-    if not refresh_token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Refresh token cookie missing",
-        )
-    token = await auth_service.refresh_access_token(refresh_token)
-    return token
+    return await auth_service.verify_email(body.token)
+
+
 
 
 @router.post(
