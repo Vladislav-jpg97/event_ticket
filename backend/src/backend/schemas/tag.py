@@ -1,10 +1,15 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class Tags(BaseModel):
     id: int
     name: str
-    slug: str
+    model_config = ConfigDict(from_attributes=True)
 
 class TagsResponse(Tags):
     pass
+
+
+class TagCreate(BaseModel):
+    name: str
+

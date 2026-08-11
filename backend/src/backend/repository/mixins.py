@@ -56,3 +56,4 @@ class RetrieveRepositoryMixin(Generic[M]):
         stmt = select(self.model).where(self.model.username == username)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
+
