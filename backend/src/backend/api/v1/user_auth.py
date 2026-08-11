@@ -2,15 +2,16 @@ from fastapi import APIRouter, HTTPException, status, Request, Response, Depends
 from fastapi.security import HTTPAuthorizationCredentials
 
 from backend.core.cache import RedisDep
-from backend.dependencies.auth import UserServiceDep, security_scheme
-from backend.schemas.auth import (
+from backend.dependencies.user_auth import UserServiceDep, security_scheme, get_current_user
+from backend.models import User
+from backend.schemas.user_auth import (
     UserCreate,
     UserResponse,
     LoginRequest,
     Token,
     RefreshToken,
     ForgotPasswordRequest,
-    ResetPasswordRequest, AccessTokenResponse, VerifyEmailRequest,
+    ResetPasswordRequest, AccessTokenResponse, VerifyEmailRequest, UserUpdate, UserPublicResponse,
 )
 
 router = APIRouter(tags=["Auth & Users"])
@@ -101,8 +102,6 @@ async def verify_email(
     return await auth_service.verify_email(body.token)
 
 
-
-
 @router.post(
     "/auth/forgot-password",
     status_code=status.HTTP_200_OK,
@@ -127,23 +126,66 @@ async def resset_password(
     return await service.resset_password(body)
 
 
+from fastapi import File, UploadFile
+
+
+@router.post(
+    "/users/me/avatar",
+    response_model=UserResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Загрузка аватара пользователя"
+)
+async def upload_avatar(
+        service: UserServiceDep,
+        file: UploadFile = File(...),
+        current_user: User = Depends(get_current_user),
+
+) -> UserResponse:
+    # 1. Сохраняем файл и получаем путь
+    avatar_url = await service.save_user_avatar(current_user.id, file)
+
+    # 2. Обновляем поле avatar_url у пользователя через сервис/репозиторий
+    updated_user = await service.update_avatar(current_user.id, avatar_url)
+
+    return updated_user
+
+
 @router.get(
     "/users/me",
     response_model=UserResponse,
     status_code=status.HTTP_200_OK,
     summary="Профиль текущего пользователя"
 )
-async def get_my_profile() -> UserResponse:
-    raise HTTPException(status_code=501, detail="Not Implemented")
+async def get_my_profile(
+        current_user: User = Depends(get_current_user),
+) -> UserResponse:
+    return UserResponse.model_validate(current_user)
+
+
+@router.patch(
+    "/users/me",
+    response_model=UserResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Обновление пользователя"
+)
+async def update_profile(
+        body: UserUpdate,
+        service: UserServiceDep,
+        current_user: User = Depends(get_current_user),
+
+) -> UserResponse:
+    user = await service.user_update(current_user.id, body)
+    return UserResponse.model_validate(user)
 
 
 @router.get(
     "/users/{username}",
-    response_model=UserResponse,
+    response_model=UserPublicResponse,
     status_code=status.HTTP_200_OK,
     summary="Профиль пользователя по username"
 )
 async def get_user_by_username(
-        body: str
-) -> UserResponse:
-    raise HTTPException(status_code=501, detail="Not Implemented")
+        username: str,
+        service: UserServiceDep,
+) -> UserPublicResponse:
+    return await service.get_public_profile(username)

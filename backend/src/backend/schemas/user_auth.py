@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
 
 
 class UserCreate(BaseModel):
@@ -16,6 +16,25 @@ class UserResponse(BaseModel):
     role: str
     is_verified: bool
     created_at: datetime
+    bio : str
+    model_config = ConfigDict(from_attributes=True)
+
+class UserUpdate(BaseModel):
+    bio: str | None
+
+class UserPublicResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    username: str
+    role: str
+    is_verified: bool
+    created_at: datetime
+    bio : str
+
+
+
+
+
 
 class LoginRequest(BaseModel):
     email: EmailStr

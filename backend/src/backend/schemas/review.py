@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from backend.schemas.auth import UserResponse
+from backend.schemas.user_auth import UserResponse
 
 
 class ReviewCreate(BaseModel):

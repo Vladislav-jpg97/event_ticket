@@ -1,16 +1,19 @@
 from datetime import datetime, timezone
-
-from fastapi import HTTPException
+from pathlib import Path
+from uuid import uuid4
+from fastapi import HTTPException,UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
 
 from backend.core.cache import CacheService
 from backend.core.security import SecurityManager
 from backend.models import User
-from backend.repository.user import UserRepository
-from backend.schemas.auth import UserCreate, LoginRequest, ForgotPasswordRequest, ResetPasswordRequest
+from backend.repository.user_auth import UserRepository
+from backend.schemas.user_auth import UserCreate, LoginRequest, ForgotPasswordRequest, ResetPasswordRequest, UserUpdate
 
 import uuid
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
 
 class AuthService:
     def __init__(
@@ -212,3 +215,73 @@ class AuthService:
         await self.session.commit()
         await self.session.refresh(user)
         return {"message": "Password successfully changed"}
+
+    async def user_update(self, user_id: int, body: UserUpdate) -> User:
+        user = await self.user_repo.get_by_id(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        update_data = body.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(user, field, value)
+        await self.user_repo.update(user)
+        await self.session.commit()
+        await self.session.refresh(user)
+        return user
+
+
+    async def get_public_profile(self, username: str):
+        user = await self.user_repo.get_by_username(username)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        return user
+
+    async def save_user_avatar(self, user_id: int, file: UploadFile) -> str:
+        # 1. Проверяем тип файла
+        if file.content_type not in ALLOWED_IMAGE_TYPES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid file type. Allowed types: image/jpeg, image/png, image/webp",
+            )
+
+        # 2. Читаем контент и проверяем размер (до 5 МБ)
+        content = await file.read()
+        if len(content) > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="File size exceeds the 5 MB limit",
+            )
+
+        # 3. Генерируем уникальное имя файла по ТЗ
+        suffix = Path(file.filename).suffix.lower() if file.filename else ".jpg"
+        unique_filename = f"{user_id}_{uuid4().hex[:8]}{suffix}"
+
+        upload_dir = Path("static/avatars")
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        file_path = upload_dir / unique_filename
+
+        # 4. Записываем файл на диск
+        with open(file_path, "wb") as f:
+            f.write(content)
+
+        # 5. Возвращаем относительный URL
+        return f"/static/avatars/{unique_filename}"
+
+    async def update_avatar(self, user_id: int, avatar_url: str) -> User:
+        # 1. Получаем пользователя
+        user = await self.user_repo.get_by_id(user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
+            )
+
+        # 2. Обновляем поле аватара
+        user.avatar_url = avatar_url
+
+        # 3. Сохраняем в базе
+        await self.user_repo.update(user)
+        await self.session.commit()
+        await self.session.refresh(user)
+
+        return user
