@@ -21,5 +21,9 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 30
     algorithm: str = "HS256"
     cors_origins: list[str]
+    exclude_paths: list[str] = ["/docs", "/redoc", "/openapi.json"]
+    limit: int = 100
+    window: int = 60
+
 
 settings = Settings()

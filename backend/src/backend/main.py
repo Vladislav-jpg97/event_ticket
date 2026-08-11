@@ -17,6 +17,7 @@ from backend.api.v1.tag import router as tag_router
 from backend.api.v1.ticket import router as ticket_router
 from backend.api.v1.user_auth import router as auth_router
 from backend.core.config import settings
+from backend.core.middleware import RateLimitMiddleware
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -33,7 +34,7 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# 1. CORS Middleware (всегда подключается первым)
+# 1. CORS Middleware (первым)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -42,8 +43,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 2. Rate Limit Middleware (вторым)
+app.add_middleware(RateLimitMiddleware)
 
-# 2. Logging Middleware
+
+# 3. Logging Middleware (третьим)
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     start_time = time.time()
@@ -57,7 +61,7 @@ async def log_requests(request: Request, call_next):
     return response
 
 
-# 3. Глобальные обработчики ошибок (Exception Handlers)
+# Глобальные обработчики ошибок
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     return JSONResponse(
