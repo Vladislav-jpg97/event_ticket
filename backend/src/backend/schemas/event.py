@@ -1,43 +1,78 @@
 from datetime import datetime
-
-from pydantic import BaseModel
-
 from backend.schemas.category import CategoriesResponse
+from pydantic import BaseModel, Field, field_validator
 
 
 class EventCreate(BaseModel):
-    title: str
-    description: str
-    start_at: datetime
-    capacity: int
-    rating: int
-    venue: str
-    city: str
-    price: float
+    title: str = Field(..., min_length=3, max_length=200)
+    description: str = Field(..., min_length=10)
+    venue: str = Field(..., min_length=2)
+    city: str = Field(..., min_length=2)
+    starts_at: datetime
+    ends_at: datetime
+    capacity: int = Field(..., ge=1, le=10000)
+    price: float = Field(..., ge=0)
     category_id: int
-    tags: list[str] = []
+    tags: list[str] = Field(default=[], max_length=10)
+
+    @field_validator("starts_at")
+    @classmethod
+    def validate_starts_at(cls, value: datetime) -> datetime:
+        if value.tzinfo is not None:
+            value = value.astimezone().replace(tzinfo=None)
+        now = datetime.now()
+        if value <= now:
+            raise ValueError("starts_at должен быть в будущем")
+        return value
+
+    @field_validator("ends_at")
+    @classmethod
+    def validate_ends_at(cls, value: datetime, info) -> datetime:
+        if value.tzinfo is not None:
+            value = value.astimezone().replace(tzinfo=None)
+        starts_at = info.data.get("starts_at")
+        if starts_at and value <= starts_at:
+            raise ValueError("ends_at должен быть позже starts_at")
+        return value
 
 
 class OrganizerNested(BaseModel):
     id: int
     username: str
-    avatar_url: str
+    avatar_url: str | None = None
+
+    class Config:
+        from_attributes = True
 
 
 class EventResponse(BaseModel):
     id: int
     title: str
     slug: str
+    venue: str
     city: str
-    start_at: datetime
+    starts_at: datetime
+    ends_at: datetime
     price: float
     status: str
+    capacity: int
+    tickets_sold: int
     available_seats: int
-    avg_rating: float
-    view: int
+    avg_rating: float | None = None
+    views: int
     organizer: OrganizerNested
     category: CategoriesResponse
     tags: list[str]
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def transform_tags(cls, v: list) -> list[str]:
+        if v and not isinstance(v[0], str):
+            return [tag.name for tag in v if hasattr(tag, "name")]
+        return v
+
+    class Config:
+        from_attributes = True
 
 
 class PaginatedEventResponse(BaseModel):

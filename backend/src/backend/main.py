@@ -64,13 +64,15 @@ async def log_requests(request: Request, call_next):
 # Глобальные обработчики ошибок
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    errors = []
+    for error in exc.errors():
+        if "ctx" in error and "error" in error["ctx"]:
+            error["ctx"]["error"] = str(error["ctx"]["error"])
+        errors.append(error)
+
     return JSONResponse(
         status_code=422,
-        content={
-            "error": "validation_error",
-            "message": "Invalid request parameters",
-            "details": exc.errors(),
-        },
+        content={"detail": errors},
     )
 
 
