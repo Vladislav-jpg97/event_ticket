@@ -1,6 +1,9 @@
 from datetime import datetime
 from backend.schemas.category import CategoriesResponse
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
+
+from backend.schemas.tag import TagsResponse
+from backend.schemas.user_auth import UserResponse
 
 
 class EventCreate(BaseModel):
@@ -41,28 +44,30 @@ class OrganizerNested(BaseModel):
     username: str
     avatar_url: str | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class EventResponse(BaseModel):
     id: int
     title: str
     slug: str
-    venue: str
-    city: str
+    description: str | None = None
+    venue: str | None = None
+    city: str | None = None
     starts_at: datetime
     ends_at: datetime
-    price: float
+    price: int
     status: str
     capacity: int
     tickets_sold: int
     available_seats: int
     avg_rating: float | None = None
-    views: int
-    organizer: OrganizerNested
-    category: CategoriesResponse
-    tags: list[str]
+    views: int = 0
+    organizer: UserResponse
+    category: CategoriesResponse | None = None
+    tags: list[TagsResponse] = []
+
+    model_config = ConfigDict(from_attributes=True)
 
     @field_validator("tags", mode="before")
     @classmethod
@@ -70,9 +75,6 @@ class EventResponse(BaseModel):
         if v and not isinstance(v[0], str):
             return [tag.name for tag in v if hasattr(tag, "name")]
         return v
-
-    class Config:
-        from_attributes = True
 
 
 class PaginatedEventResponse(BaseModel):

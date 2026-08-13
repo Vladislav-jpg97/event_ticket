@@ -1,6 +1,7 @@
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
+from sqlalchemy import select, or_, func
+from sqlalchemy.orm import selectinload, joinedload
 
+from backend.core.enums import EventStatus
 from backend.models import Event
 from backend.models.tag import Tag
 from backend.repository.base import BaseRepository
@@ -48,7 +49,7 @@ class EventRepository(
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def get_event_with_relations(self, event_id: int) -> Event | None:
+    async def get_event_with_relations(self, event_id: int ) -> Event | None:
         query = (
             select(Event)
             .options(
@@ -59,5 +60,53 @@ class EventRepository(
             .where(Event.id == event_id)
         )
         result = await self.session.execute(query)
-        return result.scalars().first()
+        return result.unique().scalar_one_or_none()
 
+    async def get_by_slug_with_relations(self, slug: str) -> Event | None:
+        query = (
+            select(Event)
+            .options(
+                selectinload(Event.category),
+                selectinload(Event.organizer),
+                selectinload(Event.tags),
+            )
+            .where(Event.slug == slug.strip())
+        )
+        result = await self.session.execute(query)
+        return result.unique().scalar_one_or_none()
+
+    async def get_paginated_events(
+            self,
+            page: int,
+            size: int,
+            user_id: int,
+            is_organizer: bool = False,
+    ):
+        # Если пользователь организатор — разрешаем смотреть PUBLISHED или его черновики
+        if user_id and is_organizer:
+            visibility_condition = or_(
+                Event.status == EventStatus.PUBLISHED,
+                Event.organizer_id == user_id
+            )
+        else:
+            visibility_condition = Event.status == EventStatus.PUBLISHED
+
+        count_query = select(func.count(Event.id)).where(visibility_condition)
+        total_result = await self.session.execute(count_query)
+        total = total_result.scalar_one()
+
+        skip = (page - 1) * size
+
+        stmt = (
+            select(Event)
+            .where(visibility_condition)
+            .options(
+                joinedload(Event.category),
+                joinedload(Event.organizer),
+                selectinload(Event.tags),
+            ).offset(skip)
+            .limit(size)
+        )
+        result = await self.session.execute(stmt)
+        event = result.unique().scalars().all()
+        return list(event), total
