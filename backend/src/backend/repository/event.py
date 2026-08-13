@@ -110,3 +110,12 @@ class EventRepository(
         result = await self.session.execute(stmt)
         event = result.unique().scalars().all()
         return list(event), total
+
+    async def get_event_with_lock(self, event_id: int) -> Event | None:
+        query = (
+            select(Event)
+            .where(Event.id == event_id)
+            .with_for_update()
+        )
+        result = await self.session.execute(query)
+        return result.scalar_one_or_none()

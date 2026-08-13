@@ -1,7 +1,8 @@
 from decimal import Decimal
+import uuid
 
-from sqlalchemy import ForeignKey, Numeric
-from sqlalchemy.orm import Mapped,mapped_column
+from sqlalchemy import ForeignKey, Numeric, String
+from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.core.enums import TicketStatus
 from backend.models.base import Base
@@ -9,7 +10,14 @@ from backend.models.base import Base
 
 class Ticket(Base):
     __tablename__ = 'tickets'
-    uuid: Mapped[str] = mapped_column(unique=True)
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    uuid: Mapped[str] = mapped_column(
+        String(36),
+        unique=True,
+        index=True,
+        default=lambda: str(uuid.uuid4())
+    )
 
     event_id: Mapped[int] = mapped_column(ForeignKey('events.id'), nullable=False)
     buyer_id: Mapped[int] = mapped_column(ForeignKey('users.id'), nullable=False)
