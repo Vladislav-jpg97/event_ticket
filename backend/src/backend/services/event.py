@@ -11,6 +11,7 @@ from backend.core.enums import EventStatus, Role
 from backend.models import Event, User
 from backend.repository.event import EventRepository
 from backend.schemas.event import EventUpdate
+from backend.services.event_transition import EVENT_TRANSITIONS
 from backend.utils.slug import slug_generator
 
 
@@ -173,3 +174,43 @@ class EventService:
 
         # Возвращаем обновленное событие со всеми связями
         return await self.event_repo.get_event_with_relations(event.id)
+
+    async def publish_event(
+            self,
+            event: Event,
+            current_user: User,
+    ):
+        if event.organizer_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+        self._validate_status_transition(event, "published")
+        event.status = EventStatus.PUBLISHED
+        # redis_client.set(f"event:seats:{event.id}", event.capacity)
+        self.session.add(event)
+        await self.session.commit()
+        return await self.event_repo.get_event_with_relations(event.id)
+
+    async def cancel_event(
+            self,
+            event: Event,
+            current_user: User,
+    ):
+        if event.organizer_id != current_user.id and current_user.role != Role.ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+        self._validate_status_transition(event, "cancelled")
+        event.status = EventStatus.CANCELED
+        self.session.add(event)
+        await self.session.commit()
+        return None
+
+    def _validate_status_transition(self, current_status: Event, new_status: str) -> None:
+        current_status, new_status = current_status.status.lower(), new_status.lower()
+        allowed = EVENT_TRANSITIONS.get(current_status, set())
+        if new_status not in allowed:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="The status transition must be one of {}".format(allowed)
+            )

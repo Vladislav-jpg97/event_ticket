@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.params import Depends, Query
 from starlette import status
 
@@ -119,3 +119,43 @@ async def register_event(
         request: TicketCreate
 ) -> TicketResponse:
     pass
+
+
+@router.post(
+    "/{event_id}/publish",
+    status_code=status.HTTP_200_OK,
+    summary="Публикация События"
+)
+async def publish_event_endpoint(
+        event_id: int,
+        service: EventServiceDep,
+        current_user: User = Depends(get_current_user),
+):
+    event = await service.event_repo.get_by_id(event_id)
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Event not found"
+        )
+
+    return await service.publish_event(event, current_user)
+
+
+@router.post(
+    "/{event_id}/cancel",
+    status_code=status.HTTP_200_OK,
+    summary="Удаления События"
+)
+async def cancel_event(
+        event_id: int,
+        service: EventServiceDep,
+        current_user: User = Depends(get_current_user),
+):
+    event = await service.event_repo.get_by_id(event_id)
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Event not found"
+        )
+
+    return await service.cancel_event(event, current_user)
