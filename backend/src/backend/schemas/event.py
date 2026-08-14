@@ -38,6 +38,25 @@ class EventCreate(BaseModel):
             raise ValueError("ends_at должен быть позже starts_at")
         return value
 
+class EventUpdate(BaseModel):
+    title: str | None = Field(None, min_length=3, max_length=200)
+    description: str | None = Field(None, min_length=10)
+    venue: str | None = Field(None, min_length=2)
+    city: str | None = Field(None, min_length=2)
+    starts_at: datetime | None = None
+    ends_at: datetime | None = None
+    capacity: int | None = Field(None, ge=1, le=10000)
+    price: float | None = Field(None, ge=0)
+    category_id: int | None = Field(None, ge=1)
+    tags: list[str] | None = Field(None, max_length=10)
+
+    @field_validator("category_id", mode="before")
+    @classmethod
+    def zero_to_none(cls, v):
+        # Если пришел 0 или пустая строка, превращаем в None, чтобы поле не обновлялось
+        if v == 0 or v == "":
+            return None
+        return v
 
 class OrganizerNested(BaseModel):
     id: int
@@ -71,9 +90,11 @@ class EventResponse(BaseModel):
 
     @field_validator("tags", mode="before")
     @classmethod
-    def transform_tags(cls, v: list) -> list[str]:
-        if v and not isinstance(v[0], str):
-            return [tag.name for tag in v if hasattr(tag, "name")]
+    def transform_tags(cls, v: list) -> list:
+        if not v:
+            return []
+        if isinstance(v[0], str):
+            return [{"id": 0, "name": tag} for tag in v]
         return v
 
 

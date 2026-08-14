@@ -5,7 +5,7 @@ from starlette import status
 from backend.dependencies.event import EventServiceDep
 from backend.dependencies.user_auth import require_role, UserRole, get_current_user
 from backend.models import User
-from backend.schemas.event import PaginatedEventResponse, EventResponse, EventCreate
+from backend.schemas.event import PaginatedEventResponse, EventResponse, EventCreate, EventUpdate
 from backend.schemas.review import ReviewResponse, ReviewCreate
 from backend.schemas.ticket import TicketResponse, TicketCreate
 
@@ -63,9 +63,25 @@ async def create_event(
 )
 async def get_event_and_views(
         slug: str,
-        event_service: EventServiceDep,
+        service: EventServiceDep,
 ):
-    return await event_service.get_event_detail_by_slug(slug)
+    return await service.get_event_detail_by_slug(slug)
+
+
+@router.patch("/{slug}", response_model=EventResponse)
+async def update_event(
+        slug: str,
+        body: EventUpdate,
+        service: EventServiceDep,
+        current_user: User = Depends(get_current_user),
+
+):
+    updated_event = await service.update_event(
+        slug=slug,
+        body=body,
+        current_user=current_user
+    )
+    return updated_event
 
 
 # --- Затем составные пути с дополнительными сегментами ---
