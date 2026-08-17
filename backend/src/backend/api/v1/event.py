@@ -5,7 +5,7 @@ from starlette import status
 from backend.dependencies.event import EventServiceDep
 from backend.dependencies.user_auth import require_role, UserRole, get_current_user
 from backend.models import User
-from backend.schemas.event import PaginatedEventResponse, EventResponse, EventCreate, EventUpdate
+from backend.schemas.event import PaginatedEventResponse, EventResponse, EventCreate, EventUpdate, EventShortResponse
 from backend.schemas.review import ReviewResponse, ReviewCreate
 from backend.schemas.ticket import TicketResponse, TicketCreate
 
@@ -36,6 +36,7 @@ async def get_events(
     return res
 
 
+
 @router.post(
     "/",
     response_model=EventResponse,
@@ -53,6 +54,12 @@ async def create_event(
 
     return event
 
+
+@router.get("/popular", response_model=list[EventShortResponse])
+async def get_popular(
+    service: EventServiceDep,
+):
+    return await service.get_popular_events()
 
 # --- Сначала универсальный одиночный параметр пути (slug) ---
 @router.get(

@@ -20,7 +20,7 @@ async def get_event_service(
     return EventService(
         session=session,
         event_repo=event_repo,
-        redis=redis
+        cache=redis
     )
 
 EventServiceDep = Annotated[EventService, Depends(get_event_service)]

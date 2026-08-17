@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timezone
 from itertools import count
 
@@ -7,10 +8,11 @@ from sqlalchemy import inspect
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
 
+from backend.core.cache import CacheServiceDep
 from backend.core.enums import EventStatus, Role
 from backend.models import Event, User
 from backend.repository.event import EventRepository
-from backend.schemas.event import EventUpdate
+from backend.schemas.event import EventUpdate, EventShortResponse
 from backend.services.event_transition import EVENT_TRANSITIONS
 from backend.utils.slug import slug_generator
 
@@ -20,11 +22,11 @@ class EventService:
             self,
             session: AsyncSession,
             event_repo: EventRepository,
-            redis: Redis,
+            cache : CacheServiceDep
     ):
         self.session = session
         self.event_repo = event_repo
-        self.redis = redis
+        self.cache = cache
 
     async def create_event(
             self,
@@ -99,13 +101,12 @@ class EventService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Event not found"
             )
-        views_count = await self.redis.incr(f"event:views:{event.id}")
+        views_count = await self.cache.incr(f"event:views:{event.id}")
         event.views = views_count
 
         return event
 
     async def update_event(self, slug: str, body: EventUpdate, current_user: User):
-        # Подгружаем событие вместе со связанными таблицами (категория, теги и т.д.)
         event = await self.event_repo.get_by_slug_with_relations(slug)
         if not event:
             raise HTTPException(
@@ -189,6 +190,7 @@ class EventService:
         # redis_client.set(f"event:seats:{event.id}", event.capacity)
         self.session.add(event)
         await self.session.commit()
+        await self.cache.delete("popular_events")
         return await self.event_repo.get_event_with_relations(event.id)
 
     async def cancel_event(
@@ -214,3 +216,17 @@ class EventService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="The status transition must be one of {}".format(allowed)
             )
+
+    async def get_popular_events(self):
+        cache_data = await self.cache.get("popular_events")
+        if cache_data:
+            return [EventShortResponse(**item) for item in json.loads(cache_data)]
+
+        events = await self.event_repo.get_popular(10)
+
+        serialized_data = json.dumps(
+            [EventShortResponse.model_validate(event).model_dump() for event in events]
+        )
+        await self.cache.set("popular_events", serialized_data, 300)
+
+        return events

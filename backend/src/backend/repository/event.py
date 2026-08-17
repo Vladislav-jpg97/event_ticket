@@ -119,3 +119,13 @@ class EventRepository(
         )
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
+
+    async def get_popular(self, limit: int = 10):
+        query = (
+            select(Event)
+            .where(Event.status == EventStatus.PUBLISHED)
+            .order_by(Event.views.desc())
+            .limit(limit)
+        )
+        result = await self.session.execute(query)
+        return result.scalars().all()

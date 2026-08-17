@@ -103,3 +103,15 @@ class PaginatedEventResponse(BaseModel):
     total: int
     page: int
     pages: int
+
+
+from pydantic import BaseModel, ConfigDict
+
+
+class EventShortResponse(BaseModel):
+    id: int
+    title: str
+    description: str | None = None
+    views: int
+
+    model_config = ConfigDict(from_attributes=True)
