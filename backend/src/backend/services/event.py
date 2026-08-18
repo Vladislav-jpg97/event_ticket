@@ -12,7 +12,7 @@ from backend.core.cache import CacheServiceDep
 from backend.core.enums import EventStatus, Role
 from backend.models import Event, User
 from backend.repository.event import EventRepository
-from backend.schemas.event import EventUpdate, EventShortResponse
+from backend.schemas.event import EventUpdate, EventShortResponse, EventStatusResponse
 from backend.services.event_transition import EVENT_TRANSITIONS
 from backend.utils.slug import slug_generator
 
@@ -230,3 +230,30 @@ class EventService:
         await self.cache.set("popular_events", serialized_data, 300)
 
         return events
+
+    async def get_event_status(
+            self,
+            slug: str,
+            current_user: User,
+    ):
+        event_status = await self.event_repo.get_by_slug(slug)
+        if not event_status:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+        if event_status.organizer_id != current_user.id and current_user.role != Role.ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to obtain the event status."
+            )
+
+        res = EventStatusResponse(
+            total_tickets_sold=event_status.tickets_sold,
+            total_revenue=float(event_status.tickets_sold * event_status.price),
+            available_seats=event_status.capacity - event_status.tickets_sold if event_status.capacity > 0 else 0,
+            occupancy_percent=round((event_status.tickets_sold / event_status.capacity) * 100,
+                                    1) if event_status.capacity > 0 else 0.0,
+        )
+        return res
+
+

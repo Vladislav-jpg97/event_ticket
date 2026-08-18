@@ -38,6 +38,7 @@ class EventCreate(BaseModel):
             raise ValueError("ends_at должен быть позже starts_at")
         return value
 
+
 class EventUpdate(BaseModel):
     title: str | None = Field(None, min_length=3, max_length=200)
     description: str | None = Field(None, min_length=10)
@@ -57,6 +58,7 @@ class EventUpdate(BaseModel):
         if v == 0 or v == "":
             return None
         return v
+
 
 class OrganizerNested(BaseModel):
     id: int
@@ -105,13 +107,19 @@ class PaginatedEventResponse(BaseModel):
     pages: int
 
 
-from pydantic import BaseModel, ConfigDict
-
-
 class EventShortResponse(BaseModel):
     id: int
     title: str
     description: str | None = None
     views: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class EventStatusResponse(BaseModel):
+    total_tickets_sold: int
+    total_revenue: float
+    available_seats: int
+    occupancy_percent: float
 
     model_config = ConfigDict(from_attributes=True)

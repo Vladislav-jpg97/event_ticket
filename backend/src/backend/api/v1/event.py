@@ -5,7 +5,8 @@ from starlette import status
 from backend.dependencies.event import EventServiceDep
 from backend.dependencies.user_auth import require_role, UserRole, get_current_user
 from backend.models import User
-from backend.schemas.event import PaginatedEventResponse, EventResponse, EventCreate, EventUpdate, EventShortResponse
+from backend.schemas.event import PaginatedEventResponse, EventResponse, EventCreate, EventUpdate, EventShortResponse, \
+    EventStatusResponse
 from backend.schemas.review import ReviewResponse, ReviewCreate
 from backend.schemas.ticket import TicketResponse, TicketCreate
 
@@ -36,7 +37,6 @@ async def get_events(
     return res
 
 
-
 @router.post(
     "/",
     response_model=EventResponse,
@@ -57,9 +57,10 @@ async def create_event(
 
 @router.get("/popular", response_model=list[EventShortResponse])
 async def get_popular(
-    service: EventServiceDep,
+        service: EventServiceDep,
 ):
     return await service.get_popular_events()
+
 
 # --- Сначала универсальный одиночный параметр пути (slug) ---
 @router.get(
@@ -93,13 +94,20 @@ async def update_event(
 
 # --- Затем составные пути с дополнительными сегментами ---
 @router.get(
-    "/{event_id}/reviews",
-    response_model=ReviewResponse,
+    "/{slug}/status",
+    response_model=EventStatusResponse,
     status_code=status.HTTP_200_OK,
-    summary="Получение отзывов о конкретном событии"
+    summary="Получение статистики продаж конкретного события"
 )
-async def get_event_reviews() -> ReviewResponse:
-    pass
+async def get_event_status(
+        slug: str,
+        service: EventServiceDep,
+        current_user: User = Depends(get_current_user),
+) -> EventStatusResponse:
+    return await service.get_event_status(
+        slug=slug,
+        current_user=current_user
+    )
 
 
 @router.post(
