@@ -17,11 +17,11 @@ CurrentActiveUser = Annotated[User, Depends(get_current_user)]
     status_code=status.HTTP_201_CREATED,
     summary="Покупка билета на событие",
 )
-async def buy_ticket_endpoint(
-    slug: str,
-    body: TicketCreate,
-    current_user: CurrentActiveUser,
-    service: TicketServiceDep,
+async def buy_ticket(
+        slug: str,
+        body: TicketCreate,
+        current_user: CurrentActiveUser,
+        service: TicketServiceDep,
 ):
     ticket = await service.buy_ticket(
         slug=slug,
@@ -38,7 +38,7 @@ async def buy_ticket_endpoint(
     summary="Просмотр списка своих купленных билетов/броней",
 )
 async def get_user_tickets(
-    current_user: CurrentActiveUser,
+        current_user: CurrentActiveUser,
 ) -> list[TicketResponse]:
     raise HTTPException(status_code=501, detail="Not Implemented")
 
@@ -49,7 +49,9 @@ async def get_user_tickets(
     summary="Отмена билета/бронирования",
 )
 async def delete_user_ticket(
-    ticket_id: int,
-    current_user: CurrentActiveUser,
+        ticket_id: int,
+        service: TicketServiceDep,
+        current_user: User = Depends(get_current_user),
+
 ) -> None:
-    raise HTTPException(status_code=501, detail="Not Implemented")
+    return await service.cancel_ticket(ticket_id, current_user.id)

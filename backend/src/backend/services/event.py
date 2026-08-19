@@ -86,6 +86,15 @@ class EventService:
             user_id=user_id,
             is_organizer=is_organizer,
         )
+
+        # Синхронизируем доступные места и проданные билеты из Redis для каждого события
+        for event in events:
+            redis_key = f"event:{event.id}:seats"
+            cached_seats = await self.cache.get(redis_key)
+            if cached_seats is not None:
+                event.available_seats = int(cached_seats)
+                event.tickets_sold = event.capacity - event.available_seats
+
         pages = (total + size - 1) // size if size > 0 else 0
         return {
             "items": events,
@@ -101,8 +110,17 @@ class EventService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Event not found"
             )
+
+        # Считаем просмотры
         views_count = await self.cache.incr(f"event:views:{event.id}")
         event.views = views_count
+
+        # Синхронизируем доступные места и проданные билеты из Redis, если они там есть
+        redis_key = f"event:{event.id}:seats"
+        cached_seats = await self.cache.get(redis_key)
+        if cached_seats is not None:
+            event.available_seats = int(cached_seats)
+            event.tickets_sold = event.capacity - event.available_seats
 
         return event
 
@@ -247,13 +265,18 @@ class EventService:
                 detail="You do not have permission to obtain the event status."
             )
 
+        # Получаем актуальные места из Redis
+        redis_key = f"event:{event_status.id}:seats"
+        cached_seats = await self.cache.get(redis_key)
+
+        available_seats = int(cached_seats) if cached_seats is not None else event_status.available_seats
+        tickets_sold = event_status.capacity - available_seats if event_status.capacity > 0 else 0
+
         res = EventStatusResponse(
-            total_tickets_sold=event_status.tickets_sold,
-            total_revenue=float(event_status.tickets_sold * event_status.price),
-            available_seats=event_status.capacity - event_status.tickets_sold if event_status.capacity > 0 else 0,
-            occupancy_percent=round((event_status.tickets_sold / event_status.capacity) * 100,
-                                    1) if event_status.capacity > 0 else 0.0,
+            total_tickets_sold=tickets_sold,
+            total_revenue=float(tickets_sold * event_status.price),
+            available_seats=available_seats,
+            occupancy_percent=round((tickets_sold / event_status.capacity) * 100, 1) if event_status.capacity > 0 else 0.0,
         )
         return res
-
 

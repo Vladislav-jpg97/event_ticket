@@ -1,5 +1,5 @@
-from sqlalchemy import select
-from backend.models import Tag, Ticket
+
+from backend.models import Ticket
 from backend.repository.base import BaseRepository
 from backend.repository.mixins import (
     AddRepositoryMixin,

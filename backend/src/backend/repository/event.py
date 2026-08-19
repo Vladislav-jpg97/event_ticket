@@ -44,7 +44,7 @@ class EventRepository(
 
         return list(existing_tags) + new_tags
 
-    async def get_by_slug(self, slug: str) -> Event | None:
+    async def get_by_slug(self, slug: str):
         stmt = select(Event).where(Event.slug == slug)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
