@@ -7,6 +7,9 @@ from backend.core.enums import TicketStatus
 from backend.models import Ticket
 from backend.repository.event import EventRepository
 from backend.repository.ticket import TicketRepository
+import io
+import qrcode  # type: ignore
+from fastapi.responses import StreamingResponse
 
 # Lua-скрипт для атомарной проверки и декремента мест в Redis
 LUA_DECREMENT_SCRIPT = """
@@ -27,9 +30,9 @@ class TicketService:
     def __init__(
             self,
             session: AsyncSession,
-            ticket_repo = TicketRepository,
-            event_repo = EventRepository,
-            redis_client = CacheService
+            ticket_repo=TicketRepository,
+            event_repo=EventRepository,
+            redis_client=CacheService
     ):
         self.session = session
         self.ticket_repo = ticket_repo
@@ -117,7 +120,7 @@ class TicketService:
             "id": event.id,
             "title": event.title,
             "slug": event.slug,
-            "start_at": getattr(event, "start_at", getattr(event, "starts_at", None)),
+            "starts_at": event.starts_at,  # <--- Ключ исправлен на starts_at
             "venue": event.venue,
             "city": event.city,
         }
@@ -174,8 +177,47 @@ class TicketService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="It's too late to cancel"
             )
-        quantity_redis =await self.redis.incr(f"event:seats:{event.id}", amount=ticket.quantity)
+
+        await self.redis.incr(f"event:{event.id}:seats", amount=ticket.quantity)
+
         ticket.status = TicketStatus.CANCELED
         await self.session.commit()
         await self.session.refresh(ticket)
 
+    async def gen_ticket_qr(
+            self,
+            ticket_id: int,
+            user_id: int,
+    ):
+        ticket = await self.ticket_repo.get_by_id(ticket_id)
+        if not ticket:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Ticket not found"
+            )
+        if ticket.buyer_id != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only cancel your own tickets"
+            )
+        data = f"ticket:{ticket.uuid}"
+        print(f"DEBUG QR DATA: {data}")
+        img = qrcode.make(data)
+        buffer = io.BytesIO()
+        img.save(buffer, format="PNG")
+        buffer.seek(0)
+        return StreamingResponse(buffer, media_type="image/png")
+
+    async def get_user_tickets(
+            self,
+            user_id: int,
+            page: int,
+            size: int,
+    ):
+        offset = (page - 1) * size
+        tickets = await self.ticket_repo.get_my_tickets_paginated(
+            user_id=user_id,
+            offset=offset,
+            limit=size,
+        )
+        return tickets

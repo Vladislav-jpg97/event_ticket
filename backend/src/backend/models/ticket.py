@@ -1,8 +1,9 @@
+from datetime import datetime
 from decimal import Decimal
 import uuid
 
-from sqlalchemy import ForeignKey, Numeric, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import ForeignKey, Numeric, String, DateTime, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.core.enums import TicketStatus
 from backend.models.base import Base
@@ -26,3 +27,10 @@ class Ticket(Base):
     total_price: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=0)
 
     status: Mapped[TicketStatus] = mapped_column(default=TicketStatus.PENDING)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False
+    )
+
+    event: Mapped["Event"] = relationship("Event", back_populates="tickets")

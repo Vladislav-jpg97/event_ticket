@@ -1,4 +1,6 @@
 from datetime import datetime
+from decimal import Decimal
+
 from backend.schemas.category import CategoriesResponse
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
@@ -77,7 +79,7 @@ class EventResponse(BaseModel):
     city: str | None = None
     starts_at: datetime
     ends_at: datetime
-    price: int
+    price: Decimal
     status: str
     capacity: int
     tickets_sold: int

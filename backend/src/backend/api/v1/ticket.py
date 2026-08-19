@@ -1,5 +1,6 @@
 from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from starlette.responses import StreamingResponse
 
 from backend.dependencies.user_auth import get_current_user
 from backend.dependencies.ticket import TicketServiceDep
@@ -38,9 +39,26 @@ async def buy_ticket(
     summary="Просмотр списка своих купленных билетов/броней",
 )
 async def get_user_tickets(
-        current_user: CurrentActiveUser,
+        service: TicketServiceDep,
+        page: int = Query(1, ge=1, description="Номер страницы"),
+        size: int = Query(1, ge=1, le=100, description="Количество элементов на странице"),
+        current_user: User = Depends(get_current_user),
+
 ) -> list[TicketResponse]:
-    raise HTTPException(status_code=501, detail="Not Implemented")
+    return await service.get_user_tickets(
+        user_id=current_user.id,
+        page=page,
+        size=size,
+    )
+
+@router.get("/{ticket_id}/qr", response_class=StreamingResponse)
+async def get_ticket_qr(
+        ticket_id: int,
+        ticket_service: TicketServiceDep,
+
+        current_user: User = Depends(get_current_user),
+):
+    return await ticket_service.gen_ticket_qr(ticket_id=ticket_id, user_id=current_user.id)
 
 
 @router.delete(

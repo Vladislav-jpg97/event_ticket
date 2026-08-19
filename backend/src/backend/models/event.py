@@ -48,3 +48,5 @@ class Event(Base):
     organizer: Mapped["User"] = relationship(foreign_keys=[organizer_id])
     category: Mapped["Category"] = relationship(back_populates="events")
     tags: Mapped[List["Tag"]] = relationship(secondary=event_tags, back_populates="events")
+
+    tickets: Mapped[List["Ticket"]] = relationship("Ticket", back_populates="event", cascade="all, delete-orphan")
