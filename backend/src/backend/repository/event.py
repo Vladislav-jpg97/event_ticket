@@ -1,10 +1,13 @@
-from sqlalchemy import select, or_, func
-from sqlalchemy.orm import selectinload, joinedload
+from datetime import datetime
+
+from sqlalchemy import select, or_, func, and_
+from sqlalchemy.orm import selectinload, joinedload, Query
 
 from backend.core.enums import EventStatus
-from backend.models import Event
+from backend.models import Event, Category
 from backend.models.tag import Tag
 from backend.repository.base import BaseRepository
+from backend.repository.filters import apply_event_filters, apply_event_sorting
 from backend.repository.mixins import (
     AddRepositoryMixin,
     DeleteRepositoryMixin,
@@ -75,41 +78,37 @@ class EventRepository(
         result = await self.session.execute(query)
         return result.unique().scalar_one_or_none()
 
-    async def get_paginated_events(
-            self,
-            page: int,
-            size: int,
-            user_id: int,
-            is_organizer: bool = False,
-    ):
-        # Если пользователь организатор — разрешаем смотреть PUBLISHED или его черновики
-        if user_id and is_organizer:
-            visibility_condition = or_(
-                Event.status == EventStatus.PUBLISHED,
-                Event.organizer_id == user_id
-            )
-        else:
-            visibility_condition = Event.status == EventStatus.PUBLISHED
+    async def get_paginated_events(self, page, size, user_id, is_organizer, filters):
+        # 1. Базовая видимость
+        visibility_condition = (
+            or_(Event.status == EventStatus.PUBLISHED, Event.organizer_id == user_id)
+            if (user_id and is_organizer)
+            else Event.status == EventStatus.PUBLISHED
+        )
 
-        count_query = select(func.count(Event.id)).where(visibility_condition)
-        total_result = await self.session.execute(count_query)
-        total = total_result.scalar_one()
+        # 2. Считаем total
+        count_stmt = select(func.count(Event.id)).where(visibility_condition)
+        count_stmt = apply_event_filters(count_stmt, filters)
+        total = (await self.session.execute(count_stmt)).scalar_one()
 
-        skip = (page - 1) * size
+        # 3. Основной запрос
+        stmt = select(Event).where(visibility_condition)
+        stmt = apply_event_filters(stmt, filters)
 
+        # Сортировка, связи и пагинация
+        stmt = apply_event_sorting(stmt, filters.sort)
         stmt = (
-            select(Event)
-            .where(visibility_condition)
-            .options(
+            stmt.options(
                 joinedload(Event.category),
                 joinedload(Event.organizer),
                 selectinload(Event.tags),
-            ).offset(skip)
+            )
+            .offset((page - 1) * size)
             .limit(size)
         )
-        result = await self.session.execute(stmt)
-        event = result.unique().scalars().all()
-        return list(event), total
+
+        events = (await self.session.execute(stmt)).unique().scalars().all()
+        return list(events), total
 
     async def get_event_with_lock(self, event_id: int) -> Event | None:
         query = (

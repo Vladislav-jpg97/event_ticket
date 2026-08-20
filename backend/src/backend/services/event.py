@@ -2,7 +2,7 @@ import json
 from datetime import datetime, timezone
 from itertools import count
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Query
 from redis import Redis
 from sqlalchemy import inspect
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,7 +12,7 @@ from backend.core.cache import CacheServiceDep
 from backend.core.enums import EventStatus, Role
 from backend.models import Event, User
 from backend.repository.event import EventRepository
-from backend.schemas.event import EventUpdate, EventShortResponse, EventStatusResponse
+from backend.schemas.event import EventUpdate, EventShortResponse, EventStatusResponse, EventFilterParams
 from backend.services.event_transition import EVENT_TRANSITIONS
 from backend.utils.slug import slug_generator
 
@@ -22,7 +22,7 @@ class EventService:
             self,
             session: AsyncSession,
             event_repo: EventRepository,
-            cache : CacheServiceDep
+            cache: CacheServiceDep
     ):
         self.session = session
         self.event_repo = event_repo
@@ -73,9 +73,10 @@ class EventService:
 
     async def get_paginated_events(
             self,
-            page: int,
-            size: int,
-            current_user=None,
+            current_user,
+            filters: EventFilterParams,
+            page: int = 1,
+            size: int = 10,
     ) -> dict:
         user_id = current_user.id if current_user else None
         is_organizer = current_user and (current_user.role in (Role.ORGANIZER, Role.ADMIN))
@@ -85,6 +86,7 @@ class EventService:
             size=size,
             user_id=user_id,
             is_organizer=is_organizer,
+            filters=filters,
         )
 
         # Синхронизируем доступные места и проданные билеты из Redis для каждого события
@@ -276,7 +278,7 @@ class EventService:
             total_tickets_sold=tickets_sold,
             total_revenue=float(tickets_sold * event_status.price),
             available_seats=available_seats,
-            occupancy_percent=round((tickets_sold / event_status.capacity) * 100, 1) if event_status.capacity > 0 else 0.0,
+            occupancy_percent=round((tickets_sold / event_status.capacity) * 100,
+                                    1) if event_status.capacity > 0 else 0.0,
         )
         return res
-

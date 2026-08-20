@@ -15,3 +15,10 @@ class TicketStatus(str, enum.Enum):
     PENDING = 'PENDING'
     PAID = 'PAID'
     CANCELED = 'CANCELED'
+
+
+class EventSortEnum(str, enum.Enum):
+    DATE_ASC = "date_asc"
+    PRICE_DESC = "price_desc"
+    RATING = "rating"
+    POPULAR = "popular"

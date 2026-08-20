@@ -1,6 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 
+from backend.core.enums import EventSortEnum
 from backend.schemas.category import CategoriesResponse
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
@@ -125,3 +126,25 @@ class EventStatusResponse(BaseModel):
     occupancy_percent: float
 
     model_config = ConfigDict(from_attributes=True)
+
+from pydantic import BaseModel, model_validator
+from datetime import datetime, timezone
+
+class EventFilterParams(BaseModel):
+    q: str | None = None
+    category: str | None = None
+    tag: str | None = None
+    city: str | None = None
+    date_from: datetime | None = None
+    date_to: datetime | None = None
+    price_min: float | None = None
+    price_max: float | None = None
+    sort: EventSortEnum = EventSortEnum.DATE_ASC
+
+    @model_validator(mode="after")
+    def make_dates_naive(self) -> "EventFilterParams":
+        if self.date_from and self.date_from.tzinfo is not None:
+            self.date_from = self.date_from.astimezone(timezone.utc).replace(tzinfo=None)
+        if self.date_to and self.date_to.tzinfo is not None:
+            self.date_to = self.date_to.astimezone(timezone.utc).replace(tzinfo=None)
+        return self

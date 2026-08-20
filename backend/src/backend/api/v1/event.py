@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, HTTPException
 from fastapi.params import Depends, Query
 from starlette import status
@@ -6,7 +8,7 @@ from backend.dependencies.event import EventServiceDep
 from backend.dependencies.user_auth import require_role, UserRole, get_current_user
 from backend.models import User
 from backend.schemas.event import PaginatedEventResponse, EventResponse, EventCreate, EventUpdate, EventShortResponse, \
-    EventStatusResponse
+    EventStatusResponse, EventFilterParams
 from backend.schemas.review import ReviewResponse, ReviewCreate
 from backend.schemas.ticket import TicketResponse, TicketCreate
 
@@ -20,21 +22,22 @@ router = APIRouter(
     "/",
     response_model=PaginatedEventResponse,
     status_code=status.HTTP_200_OK,
-    summary="Получение всех событий"
+    summary="Получить список событий с фильтрами и пагинацией"
 )
 async def get_events(
         service: EventServiceDep,
-        page: int = Query(1, ge=1, description="номер страницы"),
-        size: int = Query(10, ge=1, le=100, description="кол-во эл на странице"),
-        current_user=Depends(get_current_user),
-
-) -> dict:
-    res = await service.get_paginated_events(
+        current_user: User = Depends(get_current_user),
+        page: int = Query(1, ge=1, description="Номер страницы"),
+        size: int = Query(10, ge=1, le=100, description="Количество элементов на странице"),
+        filters: EventFilterParams = Depends(),
+):
+    result = await service.get_paginated_events(
+        current_user=current_user,
+        filters=filters,
         page=page,
         size=size,
-        current_user=current_user
     )
-    return res
+    return result
 
 
 @router.post(
@@ -110,30 +113,6 @@ async def get_event_status(
     )
 
 
-@router.post(
-    "/{id}/reviews",
-    response_model=ReviewResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Оставить отзыв о событии"
-)
-async def create_event_reviews(
-        event_id: int,
-        request: ReviewCreate
-) -> ReviewResponse:
-    pass
-
-
-@router.post(
-    "/{event_id}/register",
-    response_model=TicketResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Покупка билета / бронирование мест на событие"
-)
-async def register_event(
-        event_id: int,
-        request: TicketCreate
-) -> TicketResponse:
-    pass
 
 
 @router.post(
