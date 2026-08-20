@@ -21,7 +21,7 @@ event_tags = Table(
 )
 
 
-class Event(Base):
+class   Event(Base):
     __tablename__ = 'events'
 
     title: Mapped[str] = mapped_column(nullable=False)

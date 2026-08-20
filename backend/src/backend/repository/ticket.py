@@ -1,6 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 
+from backend.core.enums import TicketStatus
 from backend.models import Ticket, Event
 from backend.repository.base import BaseRepository
 from backend.repository.mixins import (
@@ -37,3 +38,15 @@ class TicketRepository(
         )
         result = await self.session.execute(stmt)
         return result.scalars().all()
+
+    async def get_paid_ticket_by_user_and_event(
+            self,
+            user_id: int,
+            event_id: int,
+    ) -> Ticket | None:
+        stmt = (
+            select(Ticket).where(Ticket.buyer_id == user_id, Ticket.event_id == event_id,Ticket.status == TicketStatus.PAID)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalars().first()
+

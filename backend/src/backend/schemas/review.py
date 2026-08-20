@@ -1,18 +1,25 @@
 from datetime import datetime
-
-from pydantic import BaseModel, Field
-
-from backend.schemas.user_auth import UserResponse
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class ReviewCreate(BaseModel):
-    rating: int = Field(ge=1, le=5)
-    text: str
+    rating: int = Field(..., ge=1, le=5)
+    comment: str | None = Field(default=None, max_length=2000)
 
 
 class ReviewResponse(BaseModel):
     id: int
-    user: UserResponse
+    event_id: int
+    author_id: int
     rating: int
-    text: str
+    comment: str | None = None
     created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PaginatedReviewResponse(BaseModel):
+    items: list[ReviewResponse]
+    total: int
+    page: int
+    pages: int

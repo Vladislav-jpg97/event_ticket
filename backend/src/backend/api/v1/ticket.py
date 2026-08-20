@@ -9,8 +9,6 @@ from backend.schemas.ticket import TicketCreate, TicketResponse
 
 router = APIRouter(tags=["Tickets"])
 
-CurrentActiveUser = Annotated[User, Depends(get_current_user)]
-
 
 @router.post(
     "/events/{slug}/tickets",
@@ -21,8 +19,8 @@ CurrentActiveUser = Annotated[User, Depends(get_current_user)]
 async def buy_ticket(
         slug: str,
         body: TicketCreate,
-        current_user: CurrentActiveUser,
         service: TicketServiceDep,
+        current_user: User = Depends(get_current_user),
 ):
     ticket = await service.buy_ticket(
         slug=slug,
@@ -50,6 +48,7 @@ async def get_user_tickets(
         page=page,
         size=size,
     )
+
 
 @router.get("/{ticket_id}/qr", response_class=StreamingResponse)
 async def get_ticket_qr(
