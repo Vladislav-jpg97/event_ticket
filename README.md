@@ -19,106 +19,105 @@
 </p>
 
 <p align="center">
-  A REST API for an event ticketing platform — organizers publish events, attendees
-  discover and buy tickets, and the system guarantees you can never oversell a venue.
-  Built as a team learning project modeled on a real client engagement.
+  REST API платформы для продажи билетов на мероприятия — организаторы публикуют события,
+  покупатели находят их и покупают билеты, а система гарантирует, что зал никогда
+  не будет продан «в минус». Командный учебный проект, смоделированный по мотивам
+  реального клиентского запроса.
 </p>
 
 ---
 
-## 📖 About the Project
+## 📖 О проекте
 
-**Client:** Sanzhar Mirzaev, founder of the event agency **"Vivid Events"** (Tashkent, Uzbekistan).
+**Event Ticketing Platform** — REST API для продажи билетов на мероприятия.
+Организаторы создают и публикуют события, покупатели ищут их, покупают билеты
+и получают email с подтверждением и QR-кодом для входа. Система гарантирует, что
+зал никогда не будет продан «в минус», даже при одновременных покупках.
 
-Vivid Events currently sells tickets manually — through Instagram DMs and a spreadsheet —
-which has already led to overselling a venue (312 tickets sold for a 300-seat show). This
-platform replaces that process with a real ticketing backend: registration, event
-management, ticket purchasing with **race-condition-safe seat allocation**, QR-code
-check-in, email notifications, reviews, and search.
+Учебный командный проект: с письменным ТЗ, списком открытых вопросов и командой
+из двух человек, разделившей бэклог по эпикам.
 
-> This is a training project run like a real engagement: a discovery call, a written
-> spec, an open-questions list, and a two-person team splitting the backlog by epic.
+### Ключевые требования
 
-### Core guarantees the client asked for
-
-1. Anyone can register as an **organizer** or an **attendee**
-2. Organizers can create, publish, and cancel events
-3. Attendees can search/filter events and buy 1–5 tickets at a time
-4. **Selling more tickets than available seats must be impossible**, even under concurrent purchases
-5. Buyers get an email confirmation with a **QR code** for entry
-6. Cancelled events notify every buyer automatically
-7. Attendees can review events they actually attended
+1. Любой может зарегистрироваться как **организатор** или **покупатель**
+2. Организаторы создают, публикуют и отменяют мероприятия
+3. Покупатели ищут события и покупают от 1 до 5 билетов за раз
+4. **Продать больше билетов, чем есть мест, — невозможно**, даже при одновременных покупках
+5. Покупателю приходит письмо с подтверждением и **QR-кодом** для входа
+6. Отмена мероприятия автоматически уведомляет всех покупателей
+7. Отзыв можно оставить только если реально посетил мероприятие
 
 ---
 
-## 🧭 Table of Contents
+## 🧭 Содержание
 
-- [Tech Stack](#-tech-stack)
-- [Architecture](#-architecture)
-- [Domain Model (ER Diagram)](#-domain-model-er-diagram)
-- [State Machines](#-state-machines)
-- [Concurrency: How Overselling Is Prevented](#-concurrency-how-overselling-is-prevented)
-- [Project Structure](#-project-structure)
-- [Getting Started — Step by Step](#-getting-started--step-by-step)
-- [Environment Variables](#-environment-variables)
-- [API Reference](#-api-reference)
-- [Redis Keys](#-redis-keys)
-- [Celery Tasks](#-celery-tasks)
-- [Error Format](#-error-format)
-- [Team & Task Breakdown (Who Does What)](#-team--task-breakdown-who-does-what)
+- [Стек технологий](#-стек-технологий)
+- [Архитектура](#-архитектура)
+- [Модель данных (ER-диаграмма)](#-модель-данных-er-диаграмма)
+- [Машины состояний](#-машины-состояний)
+- [Конкурентность: как предотвращается перепродажа мест](#-конкурентность-как-предотвращается-перепродажа-мест)
+- [Структура проекта](#-структура-проекта)
+- [Быстрый старт — пошагово](#-быстрый-старт--пошагово)
+- [Переменные окружения](#-переменные-окружения)
+- [Справочник API](#-справочник-api)
+- [Ключи Redis](#-ключи-redis)
+- [Задачи Celery](#-задачи-celery)
+- [Формат ошибок](#-формат-ошибок)
+- [Команда и распределение задач (кто что делает)](#-команда-и-распределение-задач-кто-что-делает)
 - [Git Workflow](#-git-workflow)
-- [Open Questions / Assumptions](#-open-questions--assumptions)
-- [Definition of Done](#-definition-of-done)
+- [Открытые вопросы / допущения](#-открытые-вопросы--допущения)
+- [Критерии готовности (Definition of Done)](#-критерии-готовности-definition-of-done)
 
 ---
 
-## 🛠 Tech Stack
+## 🛠 Стек технологий
 
-| Layer | Technology |
+| Слой | Технология |
 | --- | --- |
-| Web framework | FastAPI (async) + Uvicorn |
-| Database | PostgreSQL + SQLAlchemy 2.0 (async, `Mapped`/`mapped_column`) |
-| Migrations | Alembic (async engine) |
-| Validation | Pydantic v2 + `pydantic-settings` |
-| Cache / locks / counters | Redis (`redis[hiredis]`) |
-| Background jobs | Celery + Redis broker, Celery Beat for schedules |
-| Auth | JWT (`python-jose`) + `passlib[bcrypt]` |
+| Веб-фреймворк | FastAPI (async) + Uvicorn |
+| База данных | PostgreSQL + SQLAlchemy 2.0 (async, `Mapped`/`mapped_column`) |
+| Миграции | Alembic (async engine) |
+| Валидация | Pydantic v2 + `pydantic-settings` |
+| Кэш / блокировки / счётчики | Redis (`redis[hiredis]`) |
+| Фоновые задачи | Celery + Redis broker, Celery Beat для расписаний |
+| Авторизация | JWT (`python-jose`) + `passlib[bcrypt]` |
 | Email | `aiosmtplib` |
-| QR codes | `qrcode[pil]` |
-| Slugs | `python-slugify` |
-| File uploads | `python-multipart` |
+| QR-коды | `qrcode[pil]` |
+| Slug | `python-slugify` |
+| Загрузка файлов | `python-multipart` |
 
 ---
 
-## 🏗 Architecture
+## 🏗 Архитектура
 
-Layered architecture, same pattern across every domain (Auth, Events, Tickets, Reviews):
+Слоистая архитектура, единая для всех доменов (Auth, Events, Tickets, Reviews):
 
 ```
 Router (app/api/v1/*.py)
-   │   parses request, applies auth dependencies, sets status codes
+   │   разбирает запрос, применяет auth-зависимости, выставляет статус-коды
    ▼
 Service (app/services/*.py)
-   │   business rules: slug generation, state machine transitions,
-   │   Redis seat locking, cache invalidation, permission checks
+   │   бизнес-логика: генерация slug, переходы машины состояний,
+   │   блокировка мест в Redis, инвалидация кэша, проверка прав
    ▼
 Repository (app/repositories/*.py)
-   │   SQL only — extends a generic BaseRepository[T] with CRUD
+   │   только SQL — наследуется от generic BaseRepository[T] с CRUD
    ▼
 Model (app/models/*.py)
-       SQLAlchemy ORM models
+       SQLAlchemy ORM модели
 ```
 
-Supporting infrastructure sits alongside this stack:
+Инфраструктура вокруг этого стека:
 
-- **Redis** — JWT blacklist, rate limiting, seat counters (race-condition guard),
-  view counters, short-lived tokens (email verification / password reset), popular-events cache.
-- **Celery + Celery Beat** — all outbound email is asynchronous; a separate worker process
-  sends confirmations/reminders/digests so the API never blocks on SMTP.
+- **Redis** — blacklist JWT, rate limiting, счётчики мест (защита от race condition),
+  счётчики просмотров, короткоживущие токены (верификация email / сброс пароля),
+  кэш популярных событий.
+- **Celery + Celery Beat** — вся исходящая почта асинхронна: отдельный воркер
+  отправляет подтверждения/напоминания/дайджесты, чтобы API никогда не блокировался на SMTP.
 
 ---
 
-## 🗺 Domain Model (ER Diagram)
+## 🗺 Модель данных (ER-диаграмма)
 
 ```mermaid
 erDiagram
@@ -188,14 +187,14 @@ erDiagram
     }
 ```
 
-Full field-level definitions (types, constraints, nullability) live in the technical
-spec, Section 3.1 — keep the ORM models in sync with that table.
+Полное описание полей (типы, ограничения, nullable) — в техническом задании,
+раздел 3.1. Держите ORM-модели синхронными с этой таблицей.
 
 ---
 
-## 🔄 State Machines
+## 🔄 Машины состояний
 
-**Event lifecycle**
+**Жизненный цикл мероприятия**
 
 ```
 draft ──publish──→ published ──complete──→ completed
@@ -203,66 +202,68 @@ draft ──publish──→ published ──complete──→ completed
   └──────────────── cancel ──→ cancelled
 ```
 
-**Ticket lifecycle**
+**Жизненный цикл билета**
 
 ```
 pending ──pay──→ paid ──cancel──→ cancelled
-                          (only allowed 2h+ before the event starts)
+                          (отмена разрешена только за 2ч+ до начала события)
 ```
 
-Invalid transitions (e.g. publishing an already-cancelled event) must return `400`
-with a message naming the disallowed transition — implement this as a small
-`TRANSITIONS` mapping checked in the service layer, not scattered `if` statements.
+Недопустимые переходы (например, публикация уже отменённого события) должны
+возвращать `400` с сообщением о том, какой именно переход невозможен —
+реализуйте это через небольшой словарь `TRANSITIONS` в сервисном слое,
+а не через разбросанные `if`.
 
 ---
 
-## ⚔️ Concurrency: How Overselling Is Prevented
+## ⚔️ Конкурентность: как предотвращается перепродажа мест
 
-This is the hardest and most important piece of the whole project (`TKT-002`).
+Это самая сложная и самая важная часть всего проекта (`TKT-002`).
 
-**The problem:** two buyers both see "3 seats left" and both try to buy 3 tickets.
-If the availability check happens against Postgres with a plain `SELECT` + `INSERT`,
-both requests can pass the check before either commits — the venue oversells.
+**Проблема:** два покупателя одновременно видят «осталось 3 места» и оба пытаются
+купить 3 билета. Если проверка доступности идёт обычным `SELECT` + `INSERT` в
+Postgres, оба запроса могут пройти проверку до того, как любой из них закоммитится —
+зал будет продан в минус.
 
-**The fix:** seat counts live in Redis, not just Postgres, and are decremented
-**atomically** via a Lua script (`EVAL`) before any database write happens. Redis is
-single-threaded, so two simultaneous `EVAL` calls are automatically serialized —
-only one of them can be the one that takes the last seats.
+**Решение:** количество мест хранится в Redis, а не только в Postgres, и
+списывается **атомарно** через Lua-скрипт (`EVAL`) до любой записи в базу данных.
+Redis однопоточный, поэтому два одновременных вызова `EVAL` автоматически
+выполняются последовательно — только один из них может забрать последние места.
 
 ```
-1. Publish event  → SET event:seats:{event_id} = capacity   (no TTL)
+1. Публикация события  → SET event:seats:{event_id} = capacity   (без TTL)
 
-2. Purchase request:
-   a. EVAL lua_script  → atomically checks & decrements seats
-      → not enough seats → 409, no DB row created
-      → enough seats     → seats reserved
+2. Запрос на покупку:
+   a. EVAL lua_script  → атомарно проверяет и списывает места
+      → мест не хватает → 409, запись в БД не создаётся
+      → мест хватило    → места зарезервированы
    b. INSERT Ticket (status = pending)
-   c. Run mock payment
-      → fails  → INCR seats back, delete Ticket → 402
-      → succeeds → UPDATE Ticket SET status = paid
+   c. Mock-оплата
+      → упала    → INCR мест обратно, удалить Ticket → 402
+      → успешна  → UPDATE Ticket SET status = paid
    d. Celery: send_ticket_confirmation.delay(ticket_id)
 
-3. Cancel ticket (2h+ before event) → INCRBY seats back, ticket → cancelled
+3. Отмена билета (за 2ч+ до события) → INCRBY мест обратно, билет → cancelled
 ```
 
-`total_price` is captured on the ticket at purchase time — it must never be
-recalculated from the event's current price later.
+`total_price` фиксируется на билете в момент покупки — его нельзя пересчитывать
+позже по текущей цене события.
 
 ---
 
-## 📁 Project Structure
+## 📁 Структура проекта
 
 ```text
 event-ticketing/
 ├── app/
-│   ├── main.py                     # app factory, lifespan, middleware, routers
+│   ├── main.py                     # фабрика приложения, lifespan, middleware, роутеры
 │   ├── config.py                   # Settings (pydantic-settings)
 │   ├── database.py                 # async engine, sessionmaker, get_db
 │   │
 │   ├── core/
-│   │   ├── security.py             # hash/verify password, JWT create/decode
-│   │   ├── redis.py                # get_redis dependency
-│   │   └── celery.py               # Celery app + beat schedule
+│   │   ├── security.py             # хеширование пароля, создание/декодирование JWT
+│   │   ├── redis.py                # DI-зависимость get_redis
+│   │   └── celery.py               # приложение Celery + beat schedule
 │   │
 │   ├── models/
 │   │   ├── mixins.py                # TimestampMixin
@@ -282,11 +283,11 @@ event-ticketing/
 │   ├── services/
 │   │   ├── auth_service.py
 │   │   ├── user_service.py
-│   │   ├── event_service.py         # publish/cancel FSM, slug uniqueness
-│   │   ├── ticket_service.py        # Redis seat locking, mock payment
+│   │   ├── event_service.py         # FSM publish/cancel, уникальность slug
+│   │   ├── ticket_service.py        # блокировка мест в Redis, mock-оплата
 │   │   └── review_service.py
 │   │
-│   ├── schemas/                     # Pydantic request/response models
+│   ├── schemas/                     # Pydantic-схемы запросов/ответов
 │   ├── dependencies/
 │   │   └── auth.py                  # get_current_user, require_role, require_verified
 │   │
@@ -298,10 +299,10 @@ event-ticketing/
 │   │   ├── reviews.py
 │   │   └── categories.py
 │   │
-│   └── tasks/                       # Celery tasks (email, reminders, digest)
+│   └── tasks/                       # задачи Celery (email, напоминания, дайджест)
 │
-├── alembic/                          # async-aware migrations
-├── static/avatars/                   # uploaded avatar images
+├── alembic/                          # async-миграции
+├── static/avatars/                   # загруженные аватары
 ├── .env.example
 ├── requirements.txt
 └── README.md
@@ -309,23 +310,23 @@ event-ticketing/
 
 ---
 
-## 🚀 Getting Started — Step by Step
+## 🚀 Быстрый старт — пошагово
 
-### Prerequisites
+### Требования
 
 - Python 3.12+
-- PostgreSQL 14+ running locally (or in Docker)
-- Redis 6+ running locally (or in Docker)
-- An SMTP account for sending real email (Gmail App Password or Mailtrap both work)
+- PostgreSQL 14+ (локально или в Docker)
+- Redis 6+ (локально или в Docker)
+- SMTP-аккаунт для реальной отправки писем (Gmail App Password или Mailtrap подойдут)
 
-### 1. Clone the repository
+### 1. Склонировать репозиторий
 
 ```bash
 git clone https://github.com/<your-org>/event-ticketing.git
 cd event-ticketing
 ```
 
-### 2. Create a virtual environment and install dependencies
+### 2. Создать виртуальное окружение и установить зависимости
 
 ```bash
 python -m venv venv
@@ -334,19 +335,19 @@ source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 3. Configure environment variables
+### 3. Настроить переменные окружения
 
 ```bash
 cp .env.example .env
 ```
 
-Open `.env` and fill in at minimum: `DATABASE_URL`, `REDIS_URL`, `SECRET_KEY`
-(32+ random characters), and your SMTP credentials. See the
-[Environment Variables](#-environment-variables) table below for the full list.
+Открой `.env` и заполни как минимум: `DATABASE_URL`, `REDIS_URL`, `SECRET_KEY`
+(32+ случайных символа) и данные SMTP. Полный список — в таблице
+[Переменные окружения](#-переменные-окружения) ниже.
 
-### 4. Start PostgreSQL & Redis
+### 4. Запустить PostgreSQL и Redis
 
-If you don't already have them running locally:
+Если их ещё нет локально:
 
 ```bash
 docker run -d --name ticketing_postgres -p 5432:5432 \
@@ -356,97 +357,98 @@ docker run -d --name ticketing_postgres -p 5432:5432 \
 docker run -d --name ticketing_redis -p 6379:6379 redis:7-alpine
 ```
 
-### 5. Apply database migrations
+### 5. Применить миграции базы данных
 
 ```bash
 alembic upgrade head
 ```
 
-### 6. Start the API
+### 6. Запустить API
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-Visit **http://localhost:8000/docs** to confirm Swagger UI loads.
+Открой **http://localhost:8000/docs** — должен загрузиться Swagger UI.
 
-### 7. Start the Celery worker (separate terminal)
+### 7. Запустить Celery worker (в отдельном терминале)
 
 ```bash
 celery -A app.core.celery worker --loglevel=info
 ```
 
-This process sends all outbound email (registration verification, ticket
-confirmations, cancellations).
+Этот процесс отправляет всю исходящую почту (верификация регистрации,
+подтверждения билетов, уведомления об отмене).
 
-### 8. Start Celery Beat — the scheduler (separate terminal)
+### 8. Запустить Celery Beat — планировщик (в отдельном терминале)
 
 ```bash
 celery -A app.core.celery beat --loglevel=info
 ```
 
-This process triggers the three scheduled jobs: hourly reminders, the 5-minute
-view-counter flush, and the Monday digest.
+Этот процесс запускает три задачи по расписанию: ежечасные напоминания,
+flush счётчиков просмотров каждые 5 минут и дайджест по понедельникам.
 
-### 9. Smoke-test the full flow
+### 9. Проверить полный флоу вручную
 
 ```bash
-# 1. Register an organizer
+# 1. Зарегистрировать организатора
 curl -X POST http://localhost:8000/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"organizer@test.com","username":"organizer1","password":"SecurePass123","role":"organizer"}'
 
-# 2. Log in, grab the access token
+# 2. Залогиниться, получить access token
 curl -X POST http://localhost:8000/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"organizer@test.com","password":"SecurePass123"}'
 
-# 3. Create + publish an event, register an attendee, buy tickets, etc.
-#    (see /docs for the full request/response shapes)
+# 3. Создать и опубликовать событие, зарегистрировать покупателя, купить билеты и т.д.
+#    (полные форматы запросов/ответов — в /docs)
 ```
 
-You now have a running API, an async worker, and a scheduler — the three
-processes this project always runs as.
+Теперь у тебя запущены три процесса, на которых всегда держится этот проект:
+API, асинхронный воркер и планировщик.
 
 ---
 
-## 🔐 Environment Variables
+## 🔐 Переменные окружения
 
-| Variable | Description |
+| Переменная | Описание |
 | --- | --- |
-| `APP_NAME` | Application display name |
-| `DEBUG` | Debug mode (`true`/`false`) — also toggles SQL echo |
-| `DATABASE_URL` | Async Postgres URL, e.g. `postgresql+asyncpg://user:pass@localhost/db` |
-| `REDIS_URL` | Redis connection string |
-| `SECRET_KEY` | JWT signing secret, 32+ characters |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | Access token TTL (spec default: 15) |
-| `REFRESH_TOKEN_EXPIRE_DAYS` | Refresh token TTL (spec default: 30) |
-| `FRONTEND_URL` | Base URL used to build links inside emails |
-| `SMTP_HOST` / `SMTP_PORT` | SMTP server address/port |
-| `SMTP_USER` / `SMTP_PASSWORD` | SMTP credentials |
-| `EMAILS_FROM` | "From" address on outgoing email |
+| `APP_NAME` | Название приложения |
+| `DEBUG` | Режим отладки (`true`/`false`) — также включает SQL echo |
+| `DATABASE_URL` | Async-строка подключения к Postgres, напр. `postgresql+asyncpg://user:pass@localhost/db` |
+| `REDIS_URL` | Строка подключения к Redis |
+| `SECRET_KEY` | Секретный ключ подписи JWT, 32+ символа |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Время жизни access token (по ТЗ — 15) |
+| `REFRESH_TOKEN_EXPIRE_DAYS` | Время жизни refresh token (по ТЗ — 30) |
+| `FRONTEND_URL` | Базовый URL для ссылок в письмах |
+| `SMTP_HOST` / `SMTP_PORT` | Адрес/порт SMTP-сервера |
+| `SMTP_USER` / `SMTP_PASSWORD` | Учётные данные SMTP |
+| `EMAILS_FROM` | Адрес отправителя в письмах |
 
-Only `.env.example` is committed; `.env` is git-ignored.
+В репозитории коммитится только `.env.example`; `.env` — в `.gitignore`.
 
 ---
 
-## 📡 API Reference
+## 📡 Справочник API
 
-Full interactive docs live at **`/docs`** once the app is running. Summary below.
+Полная интерактивная документация доступна на **`/docs`** после запуска приложения.
+Ниже — краткая сводка.
 
 ### Auth — `/api/v1/auth`
-| Method | Path | Access |
+| Метод | Путь | Доступ |
 | --- | --- | :---: |
 | POST | `/register` | Public |
 | POST | `/login` | Public |
-| POST | `/refresh` | Public (reads httponly cookie) |
+| POST | `/refresh` | Public (читает httponly cookie) |
 | POST | `/logout` | Auth |
 | POST | `/verify-email` | Public |
 | POST | `/forgot-password` | Public |
 | POST | `/reset-password` | Public |
 
 ### Users — `/api/v1/users`
-| Method | Path | Access |
+| Метод | Путь | Доступ |
 | --- | --- | :---: |
 | GET | `/me` | Auth |
 | PATCH | `/me` | Auth |
@@ -455,213 +457,214 @@ Full interactive docs live at **`/docs`** once the app is running. Summary below
 | GET | `/{username}/events` | Public |
 
 ### Events — `/api/v1/events`
-| Method | Path | Access |
+| Метод | Путь | Доступ |
 | --- | --- | :---: |
 | POST | `/` | Organizer |
-| GET | `/` | Public (search/filter/sort, see below) |
-| GET | `/popular` | Public (Redis-cached top 10) |
+| GET | `/` | Public (поиск/фильтры/сортировка, см. ниже) |
+| GET | `/popular` | Public (кэш топ-10 в Redis) |
 | GET | `/{slug}` | Public |
-| PATCH | `/{slug}` | Organizer (owner), draft only |
-| DELETE | `/{slug}` | Organizer (owner) / Admin, draft only |
-| PATCH | `/{slug}/publish` | Organizer (owner) |
-| PATCH | `/{slug}/cancel` | Organizer (owner) / Admin |
-| GET | `/{slug}/stats` | Organizer (owner) |
+| PATCH | `/{slug}` | Organizer (владелец), только draft |
+| DELETE | `/{slug}` | Organizer (владелец) / Admin, только draft |
+| PATCH | `/{slug}/publish` | Organizer (владелец) |
+| PATCH | `/{slug}/cancel` | Organizer (владелец) / Admin |
+| GET | `/{slug}/stats` | Organizer (владелец) |
 
-**`GET /events` query params:** `q`, `category`, `tag`, `city`, `date_from`, `date_to`,
-`price_min`, `price_max`, `sort` (`date_asc`/`date_desc`/`price_asc`/`price_desc`/`rating`/`popular`),
-`page`, `size` (max 100).
+**Query-параметры `GET /events`:** `q`, `category`, `tag`, `city`, `date_from`,
+`date_to`, `price_min`, `price_max`, `sort` (`date_asc`/`date_desc`/`price_asc`/
+`price_desc`/`rating`/`popular`), `page`, `size` (максимум 100).
 
 ### Tickets
-| Method | Path | Access |
+| Метод | Путь | Доступ |
 | --- | --- | :---: |
 | POST | `/api/v1/events/{slug}/tickets` | Attendee |
-| GET | `/api/v1/events/{slug}/tickets` | Auth (own tickets for that event) |
-| DELETE | `/api/v1/events/{slug}/tickets/{ticket_id}` | Auth (owner) |
+| GET | `/api/v1/events/{slug}/tickets` | Auth (свои билеты на это событие) |
+| DELETE | `/api/v1/events/{slug}/tickets/{ticket_id}` | Auth (владелец) |
 | GET | `/api/v1/tickets/my` | Auth |
-| GET | `/api/v1/tickets/{ticket_id}/qr` | Auth (owner) — returns PNG |
+| GET | `/api/v1/tickets/{ticket_id}/qr` | Auth (владелец) — возвращает PNG |
 
 ### Reviews — `/api/v1/events/{slug}/reviews`
-| Method | Path | Access |
+| Метод | Путь | Доступ |
 | --- | --- | :---: |
-| POST | `/` | Attendee who bought a ticket |
+| POST | `/` | Attendee, купивший билет |
 | GET | `/` | Public |
-| DELETE | `/{review_id}` | Auth (owner) / Moderator |
+| DELETE | `/{review_id}` | Auth (владелец) / Moderator |
 
 ### Categories & Tags
-| Method | Path | Access |
+| Метод | Путь | Доступ |
 | --- | --- | :---: |
 | GET / POST | `/api/v1/categories` | Public / Admin |
 | GET / POST | `/api/v1/tags` | Public / Admin |
 
 ---
 
-## 🔑 Redis Keys
+## 🔑 Ключи Redis
 
-| Key | Value | TTL | Purpose |
+| Ключ | Значение | TTL | Назначение |
 | --- | --- | :---: | --- |
-| `blacklist:{jti}` | `"1"` | remaining token life | Revoked access tokens (logout) |
-| `verify:{token}` | `user_id` | 24h | Email verification |
-| `reset:{token}` | `email` | 1h | Password reset |
-| `login_attempts:{ip}` | count | 15 min | Login rate limiting |
-| `global_rate:{ip}` | count | 60s | Global 100 req/min rate limit |
-| `event:seats:{event_id}` | int | none | Available seats (race-condition guard) |
-| `event:views:{event_id}` | int | none | View counter, flushed to DB every 5 min |
-| `popular_events` | JSON | 5 min | Cached top-10 by views |
+| `blacklist:{jti}` | `"1"` | оставшееся время жизни токена | Отозванные access token (logout) |
+| `verify:{token}` | `user_id` | 24ч | Верификация email |
+| `reset:{token}` | `email` | 1ч | Сброс пароля |
+| `login_attempts:{ip}` | count | 15 мин | Rate limit на попытки логина |
+| `global_rate:{ip}` | count | 60с | Глобальный лимит 100 запросов/мин |
+| `event:seats:{event_id}` | int | без TTL | Доступные места (защита от race condition) |
+| `event:views:{event_id}` | int | без TTL | Счётчик просмотров, flush в БД каждые 5 мин |
+| `popular_events` | JSON | 5 мин | Кэш топ-10 по просмотрам |
 
 ---
 
-## ⏱ Celery Tasks
+## ⏱ Задачи Celery
 
-**Triggered by events:**
-| Task | Trigger | Behavior |
+**Разовые (по событию):**
+| Задача | Когда запускается | Поведение |
 | --- | --- | --- |
-| `send_verification_email` | after register | verification link, retries on SMTP failure |
-| `send_password_reset_email` | after forgot-password | reset link, retries on SMTP failure |
-| `send_ticket_confirmation` | after successful payment | event details + QR PNG attachment, retries ×3 / 60s |
-| `send_event_cancellation` | event → cancelled | batched email to every paid ticket holder |
+| `send_verification_email` | после регистрации | ссылка верификации, retry при падении SMTP |
+| `send_password_reset_email` | после forgot-password | ссылка сброса, retry при падении SMTP |
+| `send_ticket_confirmation` | после успешной оплаты | детали события + QR-код вложением, retry ×3 / 60с |
+| `send_event_cancellation` | событие → cancelled | письмо всем покупателям с paid-билетами, батчем |
 
-**Scheduled (Celery Beat):**
-| Task | Schedule | Behavior |
+**Периодические (Celery Beat):**
+| Задача | Расписание | Поведение |
 | --- | --- | --- |
-| `send_event_reminders` | hourly | emails buyers of events starting in ~24h |
-| `flush_view_counters` | every 5 min | moves `event:views:*` from Redis into the DB `views` column, then clears the keys |
-| `send_weekly_digest` | Monday 9:00 | top-5 upcoming published events, sent to all active users |
+| `send_event_reminders` | каждый час | напоминание покупателям событий, стартующих через ~24ч |
+| `flush_view_counters` | каждые 5 мин | переносит `event:views:*` из Redis в поле `views` в БД, затем чистит ключи |
+| `send_weekly_digest` | понедельник, 9:00 | топ-5 ближайших опубликованных событий всем активным пользователям |
 
 ---
 
-## ⚠️ Error Format
+## ⚠️ Формат ошибок
 
-Every error response, regardless of status code, follows one shape:
+Любой ответ с ошибкой, независимо от статус-кода, имеет единую форму:
 
 ```json
 {
   "error": "not_found",
-  "message": "Event not found"
+  "message": "Мероприятие не найдено"
 }
 ```
 
-Validation errors (`422`) additionally include a `details` array:
+Ошибки валидации (`422`) дополнительно содержат массив `details`:
 
 ```json
 {
   "error": "validation_error",
-  "message": "Invalid input data",
+  "message": "Ошибка валидации входных данных",
   "details": [
-    { "field": "starts_at", "message": "Start date must be in the future" }
+    { "field": "starts_at", "message": "Дата начала должна быть в будущем" }
   ]
 }
 ```
 
-| `error` code | HTTP status | When |
+| Код `error` | HTTP статус | Когда |
 | --- | :---: | --- |
-| `unauthorized` | 401 | missing/expired/blacklisted token |
-| `forbidden` | 403 | insufficient role or not the resource owner |
-| `not_found` | 404 | resource doesn't exist |
-| `conflict` | 409 | duplicate (email taken, no seats left) |
-| `validation_error` | 422 | malformed input |
-| `rate_limit_exceeded` | 429 | too many requests |
-| `internal_error` | 500 | unhandled server error |
+| `unauthorized` | 401 | токен отсутствует, истёк или в blacklist |
+| `forbidden` | 403 | недостаточно прав или не владелец ресурса |
+| `not_found` | 404 | ресурс не найден |
+| `conflict` | 409 | дублирование (email занят, мест нет) |
+| `validation_error` | 422 | некорректные входные данные |
+| `rate_limit_exceeded` | 429 | превышен лимит запросов |
+| `internal_error` | 500 | необработанная ошибка сервера |
 
 ---
 
-## 👥 Team & Task Breakdown (Who Does What)
+## 👥 Команда и распределение задач (кто что делает)
 
-Two-person team, split by epic. Full task-level detail (acceptance criteria,
-technical notes, estimates) lives in the project backlog — this is the summary.
+Команда из двух человек, бэклог разделён по эпикам. Полная детализация задач
+(критерии приёмки, технические заметки, оценки времени) — в бэклоге проекта,
+здесь — сводка.
 
-### S1 — Foundation, Auth, User, Middleware, Celery setup (~36–37.5h)
+### S1 — Foundation, Auth, User, Middleware, настройка Celery (~36–37.5ч)
 
-| Epic | Responsibility |
+| Эпик | Зона ответственности |
 | --- | --- |
-| **Project Foundation** | Repo/branch setup, `Settings`, async DB engine + `get_db`, Alembic init, Redis client, generic `BaseRepository[T]`, and the API-contract pass (Pydantic schemas + stub routers returning `501` for **every** endpoint in the spec, including S2's, so `/docs` and `/openapi.json` are complete on day one) |
-| **Authentication** | `User` model, password hashing + JWT utils, register, login (with rate limiting), logout + token blacklist, refresh, email verification, password reset, and the shared `get_current_user` / `require_role` / `require_verified` dependencies that everything else depends on |
-| **User Profile** | `GET/PATCH /users/me`, public profile, avatar upload |
-| **Middleware & Security** | CORS, request logging, global exception handlers (unified error format), global rate-limit middleware |
-| **Celery setup + core notifications** | `core/celery.py` + Beat schedule skeleton, verification email task, password-reset email task |
+| **Project Foundation** | Настройка репозитория/веток, `Settings`, async DB engine + `get_db`, инициализация Alembic, Redis-клиент, generic `BaseRepository[T]`, а также API-контракт (Pydantic-схемы + роутеры-заглушки, возвращающие `501` для **всех** эндпоинтов из ТЗ, включая зону S2 — чтобы `/docs` и `/openapi.json` были полными с первого дня) |
+| **Authentication** | Модель `User`, хеширование пароля + JWT-утилиты, регистрация, логин (с rate limiting), logout + blacklist токена, refresh, верификация email, сброс пароля, и общие DI-зависимости `get_current_user` / `require_role` / `require_verified`, от которых зависит всё остальное |
+| **User Profile** | `GET/PATCH /users/me`, публичный профиль, загрузка аватара |
+| **Middleware & Security** | CORS, логирование запросов, глобальные exception handlers (единый формат ошибок), глобальный rate-limit middleware |
+| **Настройка Celery + базовые уведомления** | `core/celery.py` + скелет beat schedule, задача верификации email, задача сброса пароля |
 
-> **S1 owns the critical path.** `get_current_user` and the auth dependencies must
-> land early — S2's Events/Tickets endpoints are blocked on them.
+> **S1 держит критический путь.** `get_current_user` и auth-зависимости должны
+> быть готовы рано — эндпоинты Events/Tickets у S2 заблокированы без них.
 
-### S2 — Categories, Events, Tickets, Reviews, Search, Notifications (~44–46h)
+### S2 — Categories, Events, Tickets, Reviews, Search, Notifications (~44–46ч)
 
-| Epic | Responsibility |
+| Эпик | Зона ответственности |
 | --- | --- |
-| **Categories & Tags** | Models + association table, public GET / admin POST endpoints |
-| **Events** | `Event` model, create (with slug generation + tag get-or-create), list with pagination, detail view with Redis view counter, update, publish/cancel state machine, popular-events cache, organizer sales stats |
-| **Ticketing System** | `Ticket` model, **the race-condition-safe purchase flow** (the hardest task in the whole backlog), cancellation with the 2-hour cutoff, QR-code generation/serving, "my tickets" listing |
-| **Reviews** | `Review` model with a unique `(event_id, author_id)` constraint, purchase-gated creation, list + average rating, deletion |
-| **Search & Discovery** | Extends the Events list endpoint with full-text search (`ILIKE`), category/tag/city/date/price filters, and all sort modes |
-| **Event-side notifications** | Ticket confirmation email (with QR attachment), event-cancellation broadcast, reminder + digest scheduled tasks |
+| **Categories & Tags** | Модели + association table, публичный GET / admin POST |
+| **Events** | Модель `Event`, создание (генерация slug + get-or-create тегов), список с пагинацией, детали со счётчиком просмотров в Redis, обновление, машина состояний publish/cancel, кэш популярных событий, статистика продаж для организатора |
+| **Ticketing System** | Модель `Ticket`, **защищённый от race condition флоу покупки** (самая сложная задача во всём бэклоге), отмена с ограничением в 2 часа, генерация/выдача QR-кода, список «мои билеты» |
+| **Reviews** | Модель `Review` с уникальным constraint `(event_id, author_id)`, создание только для купивших билет, список + средний рейтинг, удаление |
+| **Search & Discovery** | Расширяет список событий полнотекстовым поиском (`ILIKE`), фильтрами по категории/тегу/городу/дате/цене и всеми режимами сортировки |
+| **Уведомления по событиям** | Email подтверждения билета (с QR-вложением), рассылка при отмене события, задачи-напоминания и дайджест по расписанию |
 
-### Suggested working order
+### Рекомендуемый порядок работы
 
-1. **S1**: Foundation → Auth models/utils → `get_current_user` (unblocks S2)
-2. **S2**: Categories/Tags → Event model & CRUD (in parallel with S1's auth work, once the API-contract stubs exist)
-3. **S1**: remaining Auth endpoints, Middleware, Celery setup
-4. **S2**: Ticket purchase flow (needs `get_current_user` + Celery from S1) → Reviews → Search
-5. **Both**: Notifications wiring, then joint QA against the client's demo checklist
+1. **S1**: Foundation → модели/утилиты Auth → `get_current_user` (разблокирует S2)
+2. **S2**: Categories/Tags → модель Event и CRUD (параллельно с работой S1 над auth, как только готовы заглушки API-контракта)
+3. **S1**: остальные эндпоинты Auth, Middleware, настройка Celery
+4. **S2**: флоу покупки билетов (нужны `get_current_user` и Celery от S1) → Reviews → Search
+5. **Оба**: подключение уведомлений, затем совместное QA по демо-чеклисту клиента
 
 ---
 
 ## 🌿 Git Workflow
 
-**Branches**
+**Ветки**
 ```
-main        — production-ready, no direct pushes, PR only
-develop     — integration branch, everything merges here
-feature/*   — e.g. feature/ticket-purchase
-fix/*       — e.g. fix/race-condition-seats
-chore/*     — deps, config, refactors
+main        — production-ready код, прямые пуши запрещены, только через PR
+develop     — интеграционная ветка, всё сливается сюда
+feature/*   — напр. feature/ticket-purchase
+fix/*       — напр. fix/race-condition-seats
+chore/*     — зависимости, конфиг, рефакторинг
 ```
 
-**Commits** — [Conventional Commits](https://www.conventionalcommits.org/):
+**Коммиты** — [Conventional Commits](https://www.conventionalcommits.org/):
 ```
 feat(auth): add JWT refresh token endpoint
 fix(tickets): return seats to Redis on payment failure
 chore(deps): add qrcode and aiosmtplib packages
 ```
 
-**Pull requests**
-1. Branch off `develop`
-2. Open a PR describing what changed and how to test it
-3. At least one approval from the other teammate before merging
-4. Author merges after approval, then deletes the branch
+**Pull Request**
+1. Ветка от `develop`
+2. PR с описанием что сделано и как проверить
+3. Минимум один approve от второго участника команды перед merge
+4. Автор мержит после approve, затем удаляет ветку
 
 ---
 
-## ❓ Open Questions / Assumptions
+## ❓ Открытые вопросы / допущения
 
-The following weren't resolved with the client before development started. Decisions
-made by the team in their absence are recorded here — update this table once real
-answers come in.
+Следующие моменты не были закрыты с клиентом до начала разработки. Решения,
+принятые командой самостоятельно, зафиксированы здесь — обновите таблицу,
+когда появятся реальные ответы клиента.
 
-| # | Question | Assumption made |
+| # | Вопрос | Принятое допущение |
 | --- | --- | --- |
-| 1 | Can organizers create free events (`price = 0`)? | *fill in* |
-| 2 | Is event moderation required before publishing? | *fill in* |
-| 3 | Can capacity be reduced after tickets are sold? | *fill in* |
-| 4 | Multiple ticket tiers per event (VIP/Standard)? | *fill in* |
-| 5 | Can organizers see buyer contact info? | *fill in* |
-| 6 | Automatic refund on event cancellation, or manual? | *fill in* |
-| 7 | Age restrictions (18+) on some events? | *fill in* |
-| 8 | Search by organizer name? | *fill in* |
+| 1 | Может ли организатор создать бесплатное мероприятие (`price = 0`)? | *заполнить* |
+| 2 | Нужна ли модерация перед публикацией? | *заполнить* |
+| 3 | Можно ли уменьшить вместимость после продажи части билетов? | *заполнить* |
+| 4 | Нужны ли несколько типов билетов на событие (VIP/Стандарт)? | *заполнить* |
+| 5 | Видит ли организатор контакты покупателей? | *заполнить* |
+| 6 | Автоматический возврат денег при отмене или вручную? | *заполнить* |
+| 7 | Есть ли возрастные ограничения (18+) на некоторые события? | *заполнить* |
+| 8 | Нужен ли поиск по организатору? | *заполнить* |
 
 ---
 
-## ✅ Definition of Done
+## ✅ Критерии готовности (Definition of Done)
 
-- [ ] All endpoints documented in Swagger (`/docs`)
-- [ ] Buying the last ticket from two concurrent requests is handled correctly (no oversell)
-- [ ] Email notifications are sent asynchronously via Celery, never inline in a request
-- [ ] Every error response follows the unified format
-- [ ] Code is separated into router → service → repository layers throughout
-- [ ] `.env.example` present, `.env` git-ignored
-- [ ] `alembic upgrade head` runs cleanly from an empty database
-- [ ] All three roles (attendee, organizer, admin) manually verified via Swagger/Postman
-- [ ] Open questions above are filled in with the team's actual assumptions
+- [ ] Все эндпоинты задокументированы в Swagger (`/docs`)
+- [ ] Покупка последнего билета двумя параллельными запросами обрабатывается корректно (без перепродажи)
+- [ ] Email-уведомления отправляются асинхронно через Celery, никогда не inline в запросе
+- [ ] Каждый ответ с ошибкой соответствует единому формату
+- [ ] Код разделён по слоям router → service → repository во всех модулях
+- [ ] `.env.example` присутствует, `.env` в `.gitignore`
+- [ ] `alembic upgrade head` проходит без ошибок на пустой базе данных
+- [ ] Все три роли (attendee, organizer, admin) вручную проверены через Swagger/Postman
+- [ ] Открытые вопросы выше заполнены реальными решениями команды
 
 ---
 
 <p align="center">
-  <sub>Built as a two-person team project — from a client discovery call to a race-condition-safe ticket purchase flow.</sub>
+  <sub>Собрано командой из двух человек — от discovery-звонка с клиентом до защищённого от race condition флоу покупки билетов.</sub>
 </p>
