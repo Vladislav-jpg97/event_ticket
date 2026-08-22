@@ -14,6 +14,7 @@ from backend.schemas.user_auth import (
     ResetPasswordRequest, AccessTokenResponse, VerifyEmailRequest, UserUpdate, UserPublicResponse,
 )
 
+from fastapi import File, UploadFile
 router = APIRouter(tags=["Auth & Users"])
 
 
@@ -32,7 +33,7 @@ async def register(
 
 
 @router.post(
-    "/login",
+    "auth/login",
     response_model=AccessTokenResponse,
     status_code=status.HTTP_200_OK,
     summary="Авторизация пользователя"
@@ -80,15 +81,23 @@ async def logout(
 
 @router.post(
     "/auth/refresh",
-    response_model=Token,
+    response_model=AccessTokenResponse,
     status_code=status.HTTP_200_OK,
     summary="Обновление токенов"
 )
 async def refresh_tokens(
-        body: RefreshToken
-) -> Token:
-    raise HTTPException(status_code=501, detail="Not Implemented")
+        request: Request,
+        auth_service: UserServiceDep,
+) -> dict:
+    refresh_token = request.cookies.get("refresh_token")
 
+    if not refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token missing"
+        )
+
+    return await auth_service.refresh_access_token(refresh_token)
 
 @router.post(
     "/auth/verify-email",
@@ -126,7 +135,9 @@ async def resset_password(
     return await service.resset_password(body)
 
 
-from fastapi import File, UploadFile
+
+
+
 
 
 @router.post(
@@ -141,10 +152,7 @@ async def upload_avatar(
         current_user: User = Depends(get_current_user),
 
 ) -> UserResponse:
-    # 1. Сохраняем файл и получаем путь
     avatar_url = await service.save_user_avatar(current_user.id, file)
-
-    # 2. Обновляем поле avatar_url у пользователя через сервис/репозиторий
     updated_user = await service.update_avatar(current_user.id, avatar_url)
 
     return updated_user
@@ -189,3 +197,15 @@ async def get_user_by_username(
         service: UserServiceDep,
 ) -> UserPublicResponse:
     return await service.get_public_profile(username)
+
+
+@router.get(
+    "/{username}/events",
+    status_code=status.HTTP_200_OK,
+    summary="Мероприятия организатора"
+)
+async def get_organizer_events(
+        username: str,
+        service: UserServiceDep,
+) -> list:
+    return await service.get_organizer_events(username)

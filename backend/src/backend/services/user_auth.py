@@ -122,27 +122,38 @@ class AuthService:
         if not token:
             raise credentials_exception
 
-        payload = await self.security_manager.get_token_payload(token)
-        jti = payload.get("jti")
-        token_type = payload.get("token_type")
-        user_id = payload.get("sub")
+        try:
+            payload = await self.security_manager.get_token_payload(token)
+        except Exception:
+            raise credentials_exception
 
-        if token_type != "refresh_token" or not user_id:
+        jti = payload.get("jti")
+        token_type = payload.get("type")
+
+        # 👇 Превращаем строковый '8' в число 8
+        sub = payload.get("sub")
+        if not sub:
+            raise credentials_exception
+        user_id = int(sub)
+
+        if token_type != "refresh_token":
             raise credentials_exception
 
         if jti:
-            is_blacklisted = await self.cache_service.client.get("is_blacklisted")
+            is_blacklisted = await self.cache_service.get(f"blacklist:{jti}")
             if is_blacklisted:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Token has been revoked",
                 )
+
         user = await self.user_repo.get_by_id(user_id)
         if user is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User not found",
             )
+
         access_token = await self.security_manager.create_access_token(user.id)
         return {
             "access_token": access_token,
@@ -285,3 +296,9 @@ class AuthService:
         await self.session.refresh(user)
 
         return user
+
+    async def get_organizer_events(self, username: str):
+        user = await self.get_public_profile(username)
+
+        events = await self.user_repo.get_events_by_user_id(user.id)
+        return events

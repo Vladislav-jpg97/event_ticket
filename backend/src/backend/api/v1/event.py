@@ -44,6 +44,7 @@ async def get_events(
     "/",
     response_model=EventResponse,
     status_code=status.HTTP_201_CREATED,
+    summary="Создания событий"
 )
 async def create_event(
         event_in: EventCreate,
@@ -58,7 +59,7 @@ async def create_event(
     return event
 
 
-@router.get("/popular", response_model=list[EventShortResponse])
+@router.get("/popular", response_model=list[EventShortResponse],summary="поплуярные событии")
 async def get_popular(
         service: EventServiceDep,
 ):
@@ -79,7 +80,7 @@ async def get_event_and_views(
     return await service.get_event_detail_by_slug(slug)
 
 
-@router.patch("/{slug}", response_model=EventResponse)
+@router.patch("/{slug}", response_model=EventResponse,summary="Обновить событии")
 async def update_event(
         slug: str,
         body: EventUpdate,

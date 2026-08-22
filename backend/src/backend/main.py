@@ -12,7 +12,6 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from backend.api.v1.category import router as category_router
 from backend.api.v1.event import router as event_router
 from backend.api.v1.review import router as review_router
-from backend.api.v1.search import router as search_router
 from backend.api.v1.tag import router as tag_router
 from backend.api.v1.ticket import router as ticket_router
 from backend.api.v1.user_auth import router as auth_router
@@ -107,4 +106,3 @@ app.include_router(tag_router, prefix="/api/v1")
 app.include_router(review_router, prefix="/api/v1")
 app.include_router(event_router, prefix="/api/v1")
 app.include_router(category_router, prefix="/api/v1")
-app.include_router(search_router, prefix="/api/v1")
