@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     database_url: str
     debug: bool = False
     redis_url: str
-    app_name: str = "RecipeFinderAPI"
+    app_name: str = "EventTicketAPI"
     secret_key: str | None = None
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 30
