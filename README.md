@@ -80,11 +80,12 @@
 | Валидация | Pydantic v2 + `pydantic-settings` |
 | Кэш / блокировки / счётчики | Redis (`redis[hiredis]`) |
 | Фоновые задачи | Celery + Redis broker, Celery Beat для расписаний |
-| Авторизация | JWT (`python-jose`) + `passlib[bcrypt]` |
-| Email | `aiosmtplib` |
+| Авторизация | JWT (`jwt`) + хеширование пароля Argon2 (`argon2-cffi`) |
+| Email | `smtplib` (стандартная библиотека), отправка внутри задач Celery |
 | QR-коды | `qrcode[pil]` |
-| Slug | `python-slugify` |
+| Slug | `transliterate` — генерация slug из кириллицы (например, «Стендап в Малике» → `standup-v-malike`) |
 | Загрузка файлов | `python-multipart` |
+| Валидация email | `email-validator` |
 
 ---
 
@@ -621,7 +622,7 @@ chore/*     — зависимости, конфиг, рефакторинг
 ```
 feat(auth): add JWT refresh token endpoint
 fix(tickets): return seats to Redis on payment failure
-chore(deps): add qrcode and aiosmtplib packages
+chore(deps): add qrcode and transliterate packages
 ```
 
 **Pull Request**
